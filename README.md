@@ -116,10 +116,10 @@ npm run build
 
 ### 配置步骤
 
-1. 将代码推送到 GitHub 仓库的 `main` 分支
+1. 将代码推送到 GitHub 仓库的 `master` 分支
 2. 进入仓库 **Settings** > **Pages**
 3. 将 **Source** 设置为 **GitHub Actions**
-4. 每次推送到 `main` 分支会自动构建部署
+4. 每次推送到 `master` 分支会自动构建部署
 
 部署完成后访问：
 

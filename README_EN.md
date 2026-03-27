@@ -117,10 +117,10 @@ This project is configured for **GitHub Pages** with automated deployment via Gi
 
 ### Setup
 
-1. Push the code to the `main` branch of your GitHub repository.
+1. Push the code to the `master` branch of your GitHub repository.
 2. Go to **Settings** > **Pages** in your repository.
 3. Set **Source** to **GitHub Actions**.
-4. The workflow will automatically build and deploy on every push to `main`.
+4. The workflow will automatically build and deploy on every push to `master`.
 
 Your site will be available at:
 
