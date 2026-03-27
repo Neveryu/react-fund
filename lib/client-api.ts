@@ -42,10 +42,11 @@ const INDEX_META: Record<string, { flag: string; market: string; secid: string }
   '399001': { flag: '🇨🇳', market: 'CN', secid: '0.399001' },
   '399006': { flag: '🇨🇳', market: 'CN', secid: '0.399006' },
   HSI: { flag: '🇭🇰', market: 'HK', secid: '100.HSI' },
-  IXIC: { flag: '🇺🇸', market: 'US', secid: '100.IXIC' },
+  NDX: { flag: '🇺🇸', market: 'US', secid: '100.NDX' },
   SPX: { flag: '🇺🇸', market: 'US', secid: '100.SPX' },
   N225: { flag: '🇯🇵', market: 'JP', secid: '100.N225' },
   FTSE: { flag: '🇬🇧', market: 'EU', secid: '100.FTSE' },
+  KS11: { flag: '🇰🇷', market: 'KR', secid: '100.KS11' },
 }
 
 const SECIDS = Object.values(INDEX_META).map((m) => m.secid)
@@ -227,6 +228,169 @@ async function fetchFundHistory(
     return null
   }
 }
+
+/* ── Search APIs ──────────────────────────────── */
+
+export interface FundSearchResult {
+  code: string
+  name: string
+  type: string
+  manager?: string
+}
+
+export interface StockSearchResult {
+  code: string
+  name: string
+  market: string
+}
+
+export async function searchFunds(keyword: string): Promise<FundSearchResult[]> {
+  if (!keyword.trim()) return []
+  try {
+    const url = `https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key=${encodeURIComponent(keyword)}&_=${Date.now()}`
+    const data = await jsonp<any>(url, 'callback')
+    if (!data?.Datas?.length) return []
+    return data.Datas.slice(0, 15).map((item: any) => ({
+      code: item.CODE,
+      name: item.NAME || item.SHORTNAME || item.CODE,
+      type: item.FundBaseInfo?.FTYPE?.split('-')[0]?.trim() || '基金',
+      manager: item.FundBaseInfo?.JJJL || undefined,
+    }))
+  } catch {
+    return []
+  }
+}
+
+export async function searchStocks(keyword: string): Promise<StockSearchResult[]> {
+  if (!keyword.trim()) return []
+  try {
+    const varName = `sg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+    const url = `https://suggest3.sinajs.cn/suggest/type=11,12,13,14,15&key=${encodeURIComponent(keyword)}&name=${varName}`
+
+    return new Promise((resolve) => {
+      const script = document.createElement('script')
+      let timer: ReturnType<typeof setTimeout>
+
+      const cleanup = () => {
+        clearTimeout(timer)
+        try { delete (window as any)[varName] } catch { /* noop */ }
+        if (script.parentNode) script.parentNode.removeChild(script)
+      }
+
+      script.src = url
+      script.onload = () => {
+        const raw = (window as any)[varName] as string | undefined
+        if (!raw) { resolve([]); cleanup(); return }
+
+        const TYPE_MAP: Record<string, string> = {
+          '11': '沪A', '12': '深A', '13': '创业板', '14': '科创板', '15': '北A',
+        }
+
+        const results: StockSearchResult[] = raw
+          .split(';')
+          .filter(Boolean)
+          .map((entry) => {
+            const p = entry.split(',')
+            return { name: p[0], code: p[2], market: TYPE_MAP[p[1]] || '其他' }
+          })
+          .filter((r) => r.code && r.name && r.market !== '其他')
+          .slice(0, 15)
+
+        resolve(results)
+        cleanup()
+      }
+
+      script.onerror = () => { resolve([]); cleanup() }
+      timer = setTimeout(() => { resolve([]); cleanup() }, 8000)
+      document.head.appendChild(script)
+    })
+  } catch {
+    return []
+  }
+}
+
+/* ── Dynamic Stock Fetch ────────────────────── */
+
+function getSecid(code: string): string {
+  if (code.startsWith('6') || code.startsWith('9')) return `1.${code}`
+  return `0.${code}`
+}
+
+export async function fetchStocksByCodes(codes: string[]): Promise<StockData[]> {
+  if (!codes.length) return []
+  try {
+    const secids = codes.map(getSecid).join(',')
+    const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${secids}&fields=f2,f3,f4,f5,f6,f12,f14,f15,f16&_=${Date.now()}`
+    const data = await jsonp<any>(url, 'cb')
+    if (data.rc !== 0 || !data.data?.diff) return []
+    return data.data.diff
+      .filter((item: any) => typeof item.f2 === 'number' && item.f2 > 0)
+      .map((item: any) => {
+        const turnover = item.f6
+        let turnoverStr: string
+        if (turnover >= 1e8) turnoverStr = (turnover / 1e8).toFixed(1) + '亿'
+        else if (turnover >= 1e4) turnoverStr = (turnover / 1e4).toFixed(1) + '万'
+        else turnoverStr = String(turnover)
+        const volume = item.f5
+        let volumeStr: string
+        if (volume >= 1e4) volumeStr = (volume / 1e4).toFixed(1) + '万手'
+        else volumeStr = volume + '手'
+        return {
+          name: item.f14,
+          code: String(item.f12),
+          price: item.f2,
+          change: item.f4,
+          changePercent: item.f3,
+          volume: volumeStr,
+          turnover: turnoverStr,
+          high: item.f15,
+          low: item.f16,
+        }
+      })
+  } catch (err) {
+    console.error('fetchStocksByCodes error:', err)
+    return []
+  }
+}
+
+/* ── Dynamic Fund Fetch ─────────────────────── */
+
+export async function fetchFundsByCodes(
+  items: { code: string; type: string; manager?: string }[]
+): Promise<FundData[]> {
+  if (!items.length) return []
+
+  const codes = items.map((i) => i.code)
+  const historyPromises = codes.map((code) => fetchFundHistory(code))
+
+  const navs: (Awaited<ReturnType<typeof fetchFundNav>>)[] = []
+  for (const code of codes) {
+    navs.push(await fetchFundNav(code))
+  }
+
+  const histories = await Promise.all(historyPromises)
+
+  return items
+    .map((item, i) => {
+      const nav = navs[i]
+      if (!nav) return null
+      return {
+        name: nav.name,
+        code: item.code,
+        type: item.type,
+        nav: nav.nav,
+        navDate: nav.navDate,
+        dayChange: nav.dayChange,
+        manager: item.manager || '—',
+        scale: '—',
+        returns: histories[i]?.returns,
+        sparkline: histories[i]?.sparkline,
+      }
+    })
+    .filter(Boolean) as FundData[]
+}
+
+/* ── Funds (legacy with hardcoded config) ───── */
 
 export async function fetchFunds(): Promise<FundData[]> {
   // History uses unique callbacks → safe to parallelize

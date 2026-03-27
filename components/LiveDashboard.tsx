@@ -5,6 +5,7 @@ import MarketTicker from '@/components/MarketTicker'
 import IndexCard from '@/components/IndexCard'
 import StockTable from '@/components/StockTable'
 import FundCard from '@/components/FundCard'
+import SearchModal from '@/components/SearchModal'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   globalIndices as mockIndices,
@@ -12,33 +13,62 @@ import {
   funds as mockFunds,
 } from '@/lib/data'
 import type { IndexData, StockData, FundData } from '@/lib/data'
-import { TrendingUp, BarChart3, Wallet, RefreshCw } from 'lucide-react'
-import { fetchIndices, fetchHotStocks, fetchFunds } from '@/lib/client-api'
+import {
+  TrendingUp,
+  BarChart3,
+  Wallet,
+  RefreshCw,
+  Plus,
+  Search as SearchIcon,
+} from 'lucide-react'
+import {
+  fetchIndices,
+  fetchHotStocks,
+  fetchFundsByCodes,
+  fetchStocksByCodes,
+} from '@/lib/client-api'
+import { useWatchlist } from '@/lib/watchlist'
 import { cn } from '@/lib/utils'
 
 export default function LiveDashboard() {
+  const { fundList, stockCodes, addFund, removeFund, addStock, removeStock, mounted } =
+    useWatchlist()
+
   const [indices, setIndices] = useState<IndexData[]>(mockIndices)
-  const [stocks, setStocks] = useState<StockData[]>(mockStocks)
+  const [hotStocks, setHotStocks] = useState<StockData[]>(mockStocks)
+  const [watchlistStocks, setWatchlistStocks] = useState<StockData[]>([])
   const [funds, setFunds] = useState<FundData[]>(mockFunds)
   const [lastUpdate, setLastUpdate] = useState<string>('')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isLive, setIsLive] = useState(false)
 
+  const [stockTab, setStockTab] = useState<'hot' | 'watchlist'>('hot')
+  const [searchType, setSearchType] = useState<'fund' | 'stock' | null>(null)
+
   const fetchAllData = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const [indicesRes, stocksRes, fundsRes] = await Promise.allSettled([
-        fetchIndices(),
-        fetchHotStocks(),
-        fetchFunds(),
-      ])
+      const [indicesRes, hotStocksRes, watchlistStocksRes, fundsRes] =
+        await Promise.allSettled([
+          fetchIndices(),
+          fetchHotStocks(),
+          stockCodes.length > 0
+            ? fetchStocksByCodes(stockCodes)
+            : Promise.resolve([] as StockData[]),
+          fundList.length > 0
+            ? fetchFundsByCodes(fundList)
+            : Promise.resolve([] as FundData[]),
+        ])
 
       if (indicesRes.status === 'fulfilled' && indicesRes.value?.length) {
         setIndices(indicesRes.value)
         setIsLive(true)
       }
-      if (stocksRes.status === 'fulfilled' && stocksRes.value?.length) {
-        setStocks(stocksRes.value)
+      if (hotStocksRes.status === 'fulfilled' && hotStocksRes.value?.length) {
+        setHotStocks(hotStocksRes.value)
+      }
+      if (watchlistStocksRes.status === 'fulfilled') {
+        setWatchlistStocks(watchlistStocksRes.value || [])
       }
       if (fundsRes.status === 'fulfilled' && fundsRes.value?.length) {
         setFunds(fundsRes.value)
@@ -50,13 +80,14 @@ export default function LiveDashboard() {
     } finally {
       setIsRefreshing(false)
     }
-  }, [])
+  }, [fundList, stockCodes])
 
   useEffect(() => {
+    if (!mounted) return
     fetchAllData()
     const interval = setInterval(fetchAllData, 30000)
     return () => clearInterval(interval)
-  }, [fetchAllData])
+  }, [fetchAllData, mounted])
 
   const upCount = indices.filter((i) => i.changePercent > 0).length
   const downCount = indices.filter((i) => i.changePercent < 0).length
@@ -102,9 +133,9 @@ export default function LiveDashboard() {
           />
           <StatCard
             icon={<BarChart3 className="h-5 w-5 text-accent" />}
-            label="热门股票"
-            value={`${stocks.length} 只`}
-            sub="A股 · 港股"
+            label="股票行情"
+            value={`${hotStocks.length} 只`}
+            sub={stockCodes.length > 0 ? `自选 ${stockCodes.length} 只` : 'A股热门'}
           />
           <StatCard
             icon={<Wallet className="h-5 w-5 text-success" />}
@@ -124,24 +155,121 @@ export default function LiveDashboard() {
           </div>
         </section>
 
-        {/* Hot Stocks */}
+        {/* Stocks */}
         <section id="stocks">
-          <SectionHeader title="热门股票" subtitle="今日热门成交个股" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <SectionHeader
+              title="股票行情"
+              subtitle={stockTab === 'hot' ? '今日热门成交个股' : '我的自选股票'}
+            />
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-lg border border-border/50 overflow-hidden text-xs">
+                <button
+                  onClick={() => setStockTab('hot')}
+                  className={cn(
+                    'px-3 py-1.5 transition-colors',
+                    stockTab === 'hot'
+                      ? 'bg-primary/15 text-primary font-medium'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                  )}
+                >
+                  热门成交
+                </button>
+                <button
+                  onClick={() => setStockTab('watchlist')}
+                  className={cn(
+                    'px-3 py-1.5 transition-colors',
+                    stockTab === 'watchlist'
+                      ? 'bg-primary/15 text-primary font-medium'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                  )}
+                >
+                  我的自选
+                  {stockCodes.length > 0 && (
+                    <span className="ml-1 text-[10px] opacity-70">
+                      ({stockCodes.length})
+                    </span>
+                  )}
+                </button>
+              </div>
+              <button
+                onClick={() => {
+                  setSearchType('stock')
+                  setStockTab('watchlist')
+                }}
+                className="flex h-7 w-7 items-center justify-center rounded-md border border-border/50 hover:bg-secondary transition-colors"
+                title="添加自选股票"
+              >
+                <Plus className="h-3.5 w-3.5 text-primary" />
+              </button>
+            </div>
+          </div>
           <div className="mt-6">
-            <StockTable stocks={stocks} />
+            {stockTab === 'hot' ? (
+              <StockTable stocks={hotStocks} />
+            ) : watchlistStocks.length > 0 ? (
+              <StockTable stocks={watchlistStocks} onRemove={removeStock} />
+            ) : (
+              <EmptyWatchlist
+                message="暂无自选股票"
+                actionLabel="添加自选股票"
+                onAction={() => setSearchType('stock')}
+              />
+            )}
           </div>
         </section>
 
         {/* Fund Tracker */}
         <section id="funds">
-          <SectionHeader title="基金跟踪" subtitle="实盘持仓净值跟踪" />
+          <div className="flex items-center justify-between">
+            <SectionHeader title="基金跟踪" subtitle="实盘持仓净值跟踪" />
+            <button
+              onClick={() => setSearchType('fund')}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-border/50 hover:bg-secondary transition-colors"
+              title="添加基金"
+            >
+              <Plus className="h-3.5 w-3.5 text-primary" />
+            </button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-            {funds.map((fund) => (
-              <FundCard key={fund.code} data={fund} />
-            ))}
+            {funds.length > 0 ? (
+              funds.map((fund) => (
+                <FundCard
+                  key={fund.code}
+                  data={fund}
+                  onRemove={() => removeFund(fund.code)}
+                />
+              ))
+            ) : (
+              <div className="col-span-full">
+                <EmptyWatchlist
+                  message="暂无跟踪基金"
+                  actionLabel="添加基金"
+                  onAction={() => setSearchType('fund')}
+                />
+              </div>
+            )}
           </div>
         </section>
       </div>
+
+      {/* Search Modal */}
+      <SearchModal
+        isOpen={searchType !== null}
+        onClose={() => setSearchType(null)}
+        type={searchType || 'fund'}
+        existingCodes={
+          searchType === 'fund' ? fundList.map((f) => f.code) : stockCodes
+        }
+        onAdd={(code, meta, manager) => {
+          if (searchType === 'fund') addFund(code, meta || '基金', manager)
+          else addStock(code)
+        }}
+        onRemove={(code) => {
+          if (searchType === 'fund') removeFund(code)
+          else removeStock(code)
+        }}
+      />
     </>
   )
 }
@@ -181,5 +309,29 @@ function StatCard({
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function EmptyWatchlist({
+  message,
+  actionLabel,
+  onAction,
+}: {
+  message: string
+  actionLabel: string
+  onAction: () => void
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center rounded-lg border border-dashed border-border">
+      <SearchIcon className="h-8 w-8 text-muted-foreground/50 mb-3" />
+      <p className="text-sm text-muted-foreground mb-4">{message}</p>
+      <button
+        onClick={onAction}
+        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+      >
+        <Plus className="h-4 w-4" />
+        {actionLabel}
+      </button>
+    </div>
   )
 }

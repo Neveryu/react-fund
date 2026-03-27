@@ -3,11 +3,11 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { StockData } from '@/lib/data'
-import { ArrowUpDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { ArrowUpDown, ArrowUpRight, ArrowDownRight, X } from 'lucide-react'
 
 type SortKey = 'changePercent' | 'price' | 'turnover'
 
-export default function StockTable({ stocks }: { stocks: StockData[] }) {
+export default function StockTable({ stocks, onRemove }: { stocks: StockData[]; onRemove?: (code: string) => void }) {
   const [sortKey, setSortKey] = useState<SortKey>('changePercent')
   const [sortDesc, setSortDesc] = useState(true)
 
@@ -70,6 +70,7 @@ export default function StockTable({ stocks }: { stocks: StockData[] }) {
                   成交额 <ArrowUpDown className="h-3 w-3" />
                 </span>
               </th>
+              {onRemove && <th className="p-3 w-10"></th>}
             </tr>
           </thead>
           <tbody>
@@ -117,6 +118,17 @@ export default function StockTable({ stocks }: { stocks: StockData[] }) {
                   <td className="text-right p-3 tabular-nums text-muted-foreground hidden lg:table-cell">
                     {stock.turnover}
                   </td>
+                  {onRemove && (
+                    <td className="p-3 text-center">
+                      <button
+                        onClick={() => onRemove(stock.code)}
+                        className="p-1 rounded-md opacity-40 hover:opacity-100 hover:bg-destructive/10 transition-all"
+                        title="移除"
+                      >
+                        <X className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               )
             })}

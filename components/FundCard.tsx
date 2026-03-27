@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import MiniChart from '@/components/MiniChart'
 import { cn } from '@/lib/utils'
 import type { FundData } from '@/lib/data'
-import { ArrowUpRight, ArrowDownRight, User } from 'lucide-react'
+import { ArrowUpRight, ArrowDownRight, User, X } from 'lucide-react'
 
 const periodLabels = {
   oneWeek: '近1周',
@@ -17,14 +17,23 @@ const periodLabels = {
 
 type Period = keyof typeof periodLabels
 
-export default function FundCard({ data }: { data: FundData }) {
+export default function FundCard({ data, onRemove }: { data: FundData; onRemove?: () => void }) {
   const [period, setPeriod] = useState<Period>('oneMonth')
   const isPositive = data.dayChange >= 0
   const periodReturn = data.returns?.[period] ?? 0
   const isPeriodPositive = periodReturn >= 0
 
   return (
-    <Card className="group overflow-hidden transition-all duration-300 hover:shadow-card">
+    <Card className="group relative overflow-hidden transition-all duration-300 hover:shadow-card">
+      {onRemove && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove() }}
+          className="absolute top-2.5 right-2.5 z-10 p-1 rounded-md opacity-0 group-hover:opacity-100 bg-card/80 hover:bg-destructive/10 transition-all"
+          title="移除"
+        >
+          <X className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+        </button>
+      )}
       <CardContent className="p-5">
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
