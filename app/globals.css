@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light mode - professional finance theme */
+    --background: 220 20% 97%;
+    --foreground: 222 25% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 25% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 25% 12%;
+
+    --primary: 199 89% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 92%;
+    --secondary-foreground: 222 20% 30%;
+
+    --muted: 220 14% 92%;
+    --muted-foreground: 215 15% 46%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 222 30% 5%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 69% 38%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 30% 5%;
+
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 199 89% 42%;
+    --radius: 0.75rem;
+
+    /* Shadows */
+    --shadow-card: 0 4px 24px -4px hsl(220 20% 10% / 0.08);
+    --shadow-glow-primary: 0 0 24px hsl(199 89% 48% / 0.08);
+    --shadow-glow-success: 0 0 20px hsl(152 69% 45% / 0.06);
+    --shadow-glow-destructive: 0 0 20px hsl(0 72% 51% / 0.06);
+  }
+
+  .dark {
+    /* Dark mode - deep financial dashboard */
+    --background: 222 30% 5%;
+    --foreground: 210 20% 92%;
+
+    --card: 222 25% 8%;
+    --card-foreground: 210 20% 92%;
+
+    --popover: 222 25% 10%;
+    --popover-foreground: 210 20% 92%;
+
+    --primary: 199 89% 48%;
+    --primary-foreground: 222 30% 5%;
+
+    --secondary: 220 20% 13%;
+    --secondary-foreground: 210 20% 80%;
+
+    --muted: 220 18% 13%;
+    --muted-foreground: 215 15% 50%;
+
+    --accent: 38 92% 50%;
+    --accent-foreground: 222 30% 5%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 69% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 30% 5%;
+
+    --border: 220 18% 15%;
+    --input: 220 18% 15%;
+    --ring: 199 89% 48%;
+
+    --shadow-card: 0 4px 24px -4px hsl(0 0% 0% / 0.4);
+    --shadow-glow-primary: 0 0 24px hsl(199 89% 48% / 0.12);
+    --shadow-glow-success: 0 0 20px hsl(152 69% 45% / 0.1);
+    --shadow-glow-destructive: 0 0 20px hsl(0 72% 51% / 0.1);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Scrollbar */
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+/* Tabular nums for consistent number widths */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
