@@ -134,6 +134,36 @@ export const hotStocks: StockData[] = [
   { name: '隆基绿能', code: '601012', price: 18.92, change: -0.38, changePercent: -1.97, volume: '15.6万手', turnover: '2.9亿', high: 19.45, low: 18.80 },
 ]
 
+export interface FundRankingData {
+  name: string
+  code: string
+  type: string
+  nav: number
+  navDate: string
+  dayChange: number
+  weekChange: number
+  monthChange: number
+}
+
+export const fundRanking: FundRankingData[] = [
+  { name: '招商中证白酒指数', code: '161725', type: '指数型', nav: 1.3456, navDate: '2026-04-16', dayChange: 1.56, weekChange: 2.34, monthChange: 5.67 },
+  { name: '天弘中证科技100', code: '515860', type: 'ETF', nav: 1.1234, navDate: '2026-04-16', dayChange: 2.34, weekChange: 3.45, monthChange: 7.89 },
+  { name: '易方达消费行业股票', code: '110022', type: '股票型', nav: 4.2567, navDate: '2026-04-16', dayChange: 1.89, weekChange: 2.78, monthChange: 6.23 },
+  { name: '富国天惠成长混合', code: '161005', type: '混合型', nav: 1.9876, navDate: '2026-04-16', dayChange: 1.23, weekChange: 1.89, monthChange: 4.56 },
+  { name: '广发双擎升级混合', code: '005911', type: '混合型', nav: 2.3456, navDate: '2026-04-16', dayChange: 0.98, weekChange: 1.45, monthChange: 3.78 },
+  { name: '华夏沪深300ETF联接', code: '000051', type: '指数型', nav: 1.5678, navDate: '2026-04-16', dayChange: 0.67, weekChange: 0.89, monthChange: 2.34 },
+  { name: '易方达蓝筹精选混合', code: '005827', type: '混合型', nav: 1.8234, navDate: '2026-04-16', dayChange: 0.85, weekChange: 1.23, monthChange: 3.45 },
+  { name: '南方中证500ETF联接', code: '160119', type: '指数型', nav: 1.2345, navDate: '2026-04-16', dayChange: 0.45, weekChange: 0.67, monthChange: 1.89 },
+  { name: '嘉实沪深300ETF联接', code: '160706', type: '指数型', nav: 1.4567, navDate: '2026-04-16', dayChange: 0.34, weekChange: 0.56, monthChange: 1.67 },
+  { name: '博时主题行业混合', code: '160505', type: '混合型', nav: 1.6789, navDate: '2026-04-16', dayChange: 0.23, weekChange: 0.45, monthChange: 1.23 },
+  { name: '景顺长城新能源产业', code: '011123', type: '混合型', nav: 0.7654, navDate: '2026-04-16', dayChange: -0.45, weekChange: -0.23, monthChange: -1.56 },
+  { name: '中欧医疗健康混合', code: '003095', type: '混合型', nav: 0.9876, navDate: '2026-04-16', dayChange: -1.23, weekChange: -0.56, monthChange: -2.34 },
+  { name: '隆基绿能主题混合', code: '012345', type: '混合型', nav: 0.8765, navDate: '2026-04-16', dayChange: -1.56, weekChange: -2.34, monthChange: -4.56 },
+  { name: '农银汇理新能源主题', code: '002190', type: '混合型', nav: 1.2345, navDate: '2026-04-16', dayChange: -1.78, weekChange: -2.67, monthChange: -5.23 },
+  { name: '信达澳银新能源产业', code: '001410', type: '股票型', nav: 1.5678, navDate: '2026-04-16', dayChange: -2.12, weekChange: -3.45, monthChange: -6.78 },
+  { name: '前海开源公用事业', code: '005669', type: '混合型', nav: 1.8901, navDate: '2026-04-16', dayChange: -2.45, weekChange: -3.89, monthChange: -7.23 },
+]
+
 export const funds: FundData[] = [
   {
     name: '易方达蓝筹精选混合',

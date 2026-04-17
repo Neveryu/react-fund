@@ -6,17 +6,19 @@ interface MiniChartProps {
   id: string
 }
 
-export default function MiniChart({ data, width = 120, height = 40, positive = true, id }: MiniChartProps) {
+export default function MiniChart({ data, width = 80, height = 28, positive = true, id }: MiniChartProps) {
   if (data.length < 2) return null
 
-  const min = Math.min(...data)
-  const max = Math.max(...data)
-  const range = max - min || 1
-  const padding = height * 0.1
+  const first = data[0]
+  const changes = data.map((v) => ((v - first) / first) * 100)
+  const minChange = Math.min(...changes)
+  const maxChange = Math.max(...changes)
+  const changeRange = maxChange - minChange || 0.01
+  const padding = height * 0.15
 
-  const points = data.map((value, index) => ({
-    x: (index / (data.length - 1)) * width,
-    y: height - padding - ((value - min) / range) * (height - padding * 2),
+  const points = changes.map((c, i) => ({
+    x: (i / (data.length - 1)) * width,
+    y: height - padding - ((c - minChange) / changeRange) * (height - padding * 2),
   }))
 
   const linePath = points

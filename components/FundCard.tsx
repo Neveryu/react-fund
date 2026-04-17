@@ -1,18 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import MiniChart from '@/components/MiniChart'
 import { cn } from '@/lib/utils'
 import type { FundData } from '@/lib/data'
-import { ArrowUpRight, ArrowDownRight, User, X } from 'lucide-react'
+import { X } from 'lucide-react'
 
 const periodLabels = {
-  oneWeek: '近1周',
-  oneMonth: '近1月',
-  threeMonth: '近3月',
-  sixMonth: '近6月',
-  oneYear: '近1年',
+  oneWeek: '1周',
+  oneMonth: '1月',
+  threeMonth: '3月',
+  sixMonth: '6月',
+  oneYear: '1年',
 } as const
 
 type Period = keyof typeof periodLabels
@@ -24,110 +22,103 @@ export default function FundCard({ data, onRemove }: { data: FundData; onRemove?
   const isPeriodPositive = periodReturn >= 0
 
   return (
-    <Card className="group relative overflow-hidden transition-all duration-300 hover:shadow-card">
+    <div
+      className={cn(
+        'group relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 px-3 py-2 rounded-lg border border-border/50 hover:bg-secondary/30 transition-colors',
+      )}
+    >
       {onRemove && (
         <button
           onClick={(e) => { e.stopPropagation(); onRemove() }}
-          className="absolute top-2.5 right-2.5 z-10 p-1 rounded-md opacity-0 group-hover:opacity-100 bg-card/80 hover:bg-destructive/10 transition-all"
+          className="absolute top-1 right-1 z-10 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-destructive/10 transition-all"
           title="移除"
         >
-          <X className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+          <X className="h-3 w-3 text-muted-foreground hover:text-destructive" />
         </button>
       )}
-      <CardContent className="p-5">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1 min-w-0 mr-3">
-            <h3 className="text-sm font-medium truncate">{data.name}</h3>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[11px] text-muted-foreground">{data.code}</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                {data.type}
-              </span>
-            </div>
+
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-medium truncate">{data.name}</h3>
+            <span className="text-[9px] px-1 rounded bg-primary/10 text-primary font-medium shrink-0">
+              {data.type}
+            </span>
           </div>
-          {data.sparkline && data.sparkline.length >= 2 && (
-            <MiniChart
-              data={data.sparkline}
-              positive={isPositive}
-              id={`fund-${data.code}`}
-              width={80}
-              height={32}
-            />
-          )}
+          <p className="text-[10px] text-muted-foreground">{data.code}</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 shrink-0">
+        <div className="text-right">
+          <p className="text-xs font-bold tabular-nums">{data.nav.toFixed(4)}</p>
+          <p className={cn('text-[10px] tabular-nums', isPositive ? 'text-success' : 'text-destructive')}>
+            {isPositive ? '+' : ''}{data.dayChange.toFixed(2)}%
+          </p>
         </div>
 
-        {/* NAV */}
-        <div className="flex items-baseline gap-6 mb-4">
-          <div>
-            <p className="text-xs text-muted-foreground mb-0.5">最新净值</p>
-            <p className="text-xl font-bold tabular-nums">{data.nav.toFixed(4)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-0.5">日涨幅</p>
-            <p
-              className={cn(
-                'text-sm font-semibold tabular-nums flex items-center gap-0.5',
-                isPositive ? 'text-success' : 'text-destructive'
-              )}
-            >
-              {isPositive ? (
-                <ArrowUpRight className="h-3 w-3" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3" />
-              )}
-              {isPositive ? '+' : ''}
-              {data.dayChange.toFixed(2)}%
-            </p>
-          </div>
-        </div>
-
-        {/* Period Returns */}
-        {data.returns ? (
-          <div className="space-y-3">
-            <div className="flex gap-1">
-              {(Object.keys(periodLabels) as Period[]).map((key) => (
+        {data.returns && (
+          <div className="flex items-center gap-0.5">
+            {(Object.keys(periodLabels) as Period[]).map((key) => {
+              const val = data.returns?.[key] ?? 0
+              const pos = val >= 0
+              return (
                 <button
                   key={key}
                   onClick={() => setPeriod(key)}
                   className={cn(
-                    'text-[11px] px-2 py-1 rounded-md transition-colors',
+                    'text-[9px] px-1 py-0.5 rounded transition-colors tabular-nums',
                     period === key
-                      ? 'bg-primary/15 text-primary font-medium'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                      ? pos
+                        ? 'bg-success/15 text-success font-medium'
+                        : 'bg-destructive/15 text-destructive font-medium'
+                      : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   {periodLabels[key]}
                 </button>
-              ))}
-            </div>
-            <div
+              )
+            })}
+            <span
               className={cn(
-                'text-center py-2 rounded-md text-sm font-semibold tabular-nums',
-                isPeriodPositive
-                  ? 'bg-success/10 text-success'
-                  : 'bg-destructive/10 text-destructive'
+                'text-[10px] font-semibold tabular-nums ml-1 px-1 py-0.5 rounded',
+                isPeriodPositive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
               )}
             >
               {isPeriodPositive ? '+' : ''}
               {periodReturn.toFixed(2)}%
-            </div>
-          </div>
-        ) : (
-          <div className="py-3 text-center text-xs text-muted-foreground rounded-md bg-secondary/30">
-            暂无历史收益数据
+            </span>
           </div>
         )}
 
-        {/* Meta */}
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-border/50 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <User className="h-3 w-3" />
-            {data.manager}
-          </span>
-          <span>规模 {data.scale}</span>
-        </div>
-      </CardContent>
-    </Card>
+        {data.sparkline && data.sparkline.length >= 2 && (
+          <div className="w-14 h-5 opacity-60 hidden sm:block">
+            <svg width={56} height={20} viewBox="0 0 56 20" className="overflow-visible">
+              {(() => {
+                const d = data.sparkline!
+                const min = Math.min(...d)
+                const max = Math.max(...d)
+                const range = max - min || 1
+                const pts = d.map((v, i) => ({
+                  x: (i / (d.length - 1)) * 56,
+                  y: 18 - ((v - min) / range) * 16,
+                }))
+                const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+                return (
+                  <path
+                    d={line}
+                    fill="none"
+                    stroke={isPositive ? 'hsl(var(--success))' : 'hsl(var(--destructive))'}
+                    strokeWidth="1"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )
+              })()}
+            </svg>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

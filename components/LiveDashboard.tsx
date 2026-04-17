@@ -5,14 +5,16 @@ import MarketTicker from '@/components/MarketTicker'
 import IndexCard from '@/components/IndexCard'
 import StockTable from '@/components/StockTable'
 import FundCard from '@/components/FundCard'
+import FundRankingTable from '@/components/FundRankingTable'
 import SearchModal from '@/components/SearchModal'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   globalIndices as mockIndices,
   hotStocks as mockStocks,
   funds as mockFunds,
+  fundRanking as mockFundRanking,
 } from '@/lib/data'
-import type { IndexData, StockData, FundData } from '@/lib/data'
+import type { IndexData, StockData, FundData, FundRankingData } from '@/lib/data'
 import {
   TrendingUp,
   BarChart3,
@@ -20,12 +22,14 @@ import {
   RefreshCw,
   Plus,
   Search as SearchIcon,
+  BarChart2,
 } from 'lucide-react'
 import {
   fetchIndices,
   fetchHotStocks,
   fetchFundsByCodes,
   fetchStocksByCodes,
+  fetchFundRanking,
 } from '@/lib/client-api'
 import { useWatchlist } from '@/lib/watchlist'
 import { cn } from '@/lib/utils'
@@ -38,6 +42,7 @@ export default function LiveDashboard() {
   const [hotStocks, setHotStocks] = useState<StockData[]>(mockStocks)
   const [watchlistStocks, setWatchlistStocks] = useState<StockData[]>([])
   const [funds, setFunds] = useState<FundData[]>(mockFunds)
+  const [fundRanking, setFundRanking] = useState<FundRankingData[]>(mockFundRanking)
   const [lastUpdate, setLastUpdate] = useState<string>('')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isLive, setIsLive] = useState(false)
@@ -48,7 +53,7 @@ export default function LiveDashboard() {
   const fetchAllData = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const [indicesRes, hotStocksRes, watchlistStocksRes, fundsRes] =
+      const [indicesRes, hotStocksRes, watchlistStocksRes, fundsRes, rankingRes] =
         await Promise.allSettled([
           fetchIndices(),
           fetchHotStocks(),
@@ -58,6 +63,7 @@ export default function LiveDashboard() {
           fundList.length > 0
             ? fetchFundsByCodes(fundList)
             : Promise.resolve([] as FundData[]),
+          fetchFundRanking(),
         ])
 
       if (indicesRes.status === 'fulfilled' && indicesRes.value?.length) {
@@ -72,6 +78,9 @@ export default function LiveDashboard() {
       }
       if (fundsRes.status === 'fulfilled' && fundsRes.value?.length) {
         setFunds(fundsRes.value)
+      }
+      if (rankingRes.status === 'fulfilled' && rankingRes.value?.length) {
+        setFundRanking(rankingRes.value)
       }
 
       setLastUpdate(new Date().toLocaleTimeString('zh-CN'))
@@ -124,31 +133,34 @@ export default function LiveDashboard() {
         </div>
 
         {/* Summary Stats */}
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <section className="grid grid-cols-3 gap-3">
           <StatCard
             icon={<TrendingUp className="h-5 w-5 text-primary" />}
             label="全球指数"
             value={`${indices.length} 个`}
             sub={`${upCount} 涨 · ${downCount} 跌`}
+            href="#indices"
           />
           <StatCard
             icon={<BarChart3 className="h-5 w-5 text-accent" />}
             label="股票行情"
             value={`${hotStocks.length} 只`}
             sub={stockCodes.length > 0 ? `自选 ${stockCodes.length} 只` : 'A股热门'}
+            href="#stocks"
           />
           <StatCard
             icon={<Wallet className="h-5 w-5 text-success" />}
             label="跟踪基金"
             value={`${funds.length} 只`}
             sub="每日更新"
+            href="#funds"
           />
         </section>
 
         {/* Global Indices */}
         <section id="indices">
           <SectionHeader title="全球指数" subtitle="主要市场实时行情" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mt-4">
             {indices.map((index) => (
               <IndexCard key={index.code} data={index} />
             ))}
@@ -231,7 +243,7 @@ export default function LiveDashboard() {
               <Plus className="h-3.5 w-3.5 text-primary" />
             </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+          <div className="grid grid-cols-1 gap-2 mt-3">
             {funds.length > 0 ? (
               funds.map((fund) => (
                 <FundCard
@@ -249,6 +261,14 @@ export default function LiveDashboard() {
                 />
               </div>
             )}
+          </div>
+        </section>
+
+        {/* Fund Ranking */}
+        <section id="fund-ranking">
+          <SectionHeader title="当日基金涨跌幅排行榜" subtitle="全市场基金实时排行" />
+          <div className="mt-4">
+            <FundRankingTable data={fundRanking} />
           </div>
         </section>
       </div>
@@ -290,26 +310,37 @@ function StatCard({
   label,
   value,
   sub,
+  href,
 }: {
   icon: React.ReactNode
   label: string
   value: string
   sub: string
+  href?: string
 }) {
-  return (
-    <Card>
-      <CardContent className="flex items-center gap-4 p-5">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-secondary">
+  const content = (
+    <Card className="transition-colors hover:bg-secondary/50 cursor-pointer">
+      <CardContent className="flex items-center gap-3 p-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
           {icon}
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-lg font-bold">{value}</p>
-          <p className="text-xs text-muted-foreground">{sub}</p>
+          <p className="text-base font-bold leading-tight">{value}</p>
+          <p className="text-xs text-muted-foreground leading-tight">{sub}</p>
         </div>
       </CardContent>
     </Card>
   )
+
+  if (href) {
+    return (
+      <a href={href} className="block">
+        {content}
+      </a>
+    )
+  }
+  return content
 }
 
 function EmptyWatchlist({

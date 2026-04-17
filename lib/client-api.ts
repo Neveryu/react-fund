@@ -1,4 +1,4 @@
-import type { IndexData, StockData, FundData } from './data'
+import type { IndexData, StockData, FundData, FundRankingData } from './data'
 
 /* ── JSONP Utility ─────────────────────────────── */
 
@@ -64,8 +64,8 @@ export async function fetchIndices(): Promise<IndexData[]> {
       Object.entries(INDEX_META).map(async ([code, meta]) => {
         try {
           const kUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${meta.secid}&klt=101&fqt=1&lmt=15&end=20500101&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57,f58`
-          const kData = await jsonp<any>(kUrl, 'cb')
-          if (kData.data?.klines) {
+          const kData = await jsonp<any>(kUrl, 'callback')
+          if (kData.data?.klines && Array.isArray(kData.data.klines)) {
             sparklineMap.set(
               code,
               kData.data.klines.map((k: string) => parseFloat(k.split(',')[2]))
@@ -420,4 +420,32 @@ export async function fetchFunds(): Promise<FundData[]> {
       sparkline: histories[i]?.sparkline,
     }
   }).filter(Boolean) as FundData[]
+}
+
+/* ── Fund Ranking ───────────────────────────── */
+
+export async function fetchFundRanking(): Promise<FundRankingData[]> {
+  try {
+    const url = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=20&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:7,m:0+t:8,m:0+t:9,m:0+t:10,m:0+t:11,m:0+t:12,m:0+t:13,m:0+t:14&fields=f2,f3,f4,f12,f13,f14,f128,f136,f137,f140,f141&_=${Date.now()}`
+    const data = await jsonp<any>(url, 'cb')
+
+    if (data.rc !== 0 || !data.data?.diff) return []
+
+    return data.data.diff
+      .filter((item: any) => typeof item.f2 === 'number' && item.f2 > 0)
+      .map((item: any) => ({
+        name: item.f14,
+        code: String(item.f12),
+        type: item.f136 || '基金',
+        nav: item.f2,
+        navDate: item.f137 || '',
+        dayChange: item.f3,
+        weekChange: item.f137 ? parseFloat(item.f137) : 0,
+        monthChange: item.f140 ? parseFloat(item.f140) : 0,
+      }))
+      .sort((a: FundRankingData, b: FundRankingData) => b.dayChange - a.dayChange)
+  } catch (err) {
+    console.error('fetchFundRanking error:', err)
+    return []
+  }
 }

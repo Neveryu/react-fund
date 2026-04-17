@@ -10,6 +10,7 @@ const navItems = [
   { label: '全球指数', href: '#indices' },
   { label: '热门股票', href: '#stocks' },
   { label: '基金跟踪', href: '#funds' },
+  { label: '基金排行', href: '#fund-ranking' },
 ]
 
 export default function Header() {
