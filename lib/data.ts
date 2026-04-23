@@ -28,8 +28,8 @@ export interface FundData {
   nav: number
   navDate: string
   dayChange: number
-  manager: string
-  scale: string
+  manager?: string
+  scale?: string
   returns?: {
     oneWeek: number
     oneMonth: number
@@ -120,6 +120,16 @@ export const globalIndices: IndexData[] = [
     market: 'EU',
     flag: '🇬🇧',
     sparkline: [8150, 8160, 8170, 8180, 8190, 8185, 8200, 8210, 8220, 8230, 8235],
+  },
+  {
+    name: '韩国综合',
+    code: 'KS11',
+    value: 2567.89,
+    change: -12.34,
+    changePercent: -0.48,
+    market: 'KR',
+    flag: '🇰🇷',
+    sparkline: [2590, 2585, 2580, 2582, 2578, 2575, 2572, 2570, 2568, 2569, 2568],
   },
 ]
 

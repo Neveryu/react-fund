@@ -38,15 +38,15 @@ function jsonp<T>(url: string, callbackParam = 'cb'): Promise<T> {
 /* ── Indices ───────────────────────────────────── */
 
 const INDEX_META: Record<string, { flag: string; market: string; secid: string }> = {
-  '000001': { flag: '🇨🇳', market: 'CN', secid: '1.000001' },
-  '399001': { flag: '🇨🇳', market: 'CN', secid: '0.399001' },
-  '399006': { flag: '🇨🇳', market: 'CN', secid: '0.399006' },
-  HSI: { flag: '🇭🇰', market: 'HK', secid: '100.HSI' },
-  NDX: { flag: '🇺🇸', market: 'US', secid: '100.NDX' },
-  SPX: { flag: '🇺🇸', market: 'US', secid: '100.SPX' },
-  N225: { flag: '🇯🇵', market: 'JP', secid: '100.N225' },
-  FTSE: { flag: '🇬🇧', market: 'EU', secid: '100.FTSE' },
-  KS11: { flag: '🇰🇷', market: 'KR', secid: '100.KS11' },
+  '000001': { flag: '\uD83C\uDDE8\uD83C\uDDF3', market: 'CN', secid: '1.000001' },
+  '399001': { flag: '\uD83C\uDDE8\uD83C\uDDF3', market: 'CN', secid: '0.399001' },
+  '399006': { flag: '\uD83C\uDDE8\uD83C\uDDF3', market: 'CN', secid: '0.399006' },
+  HSI: { flag: '\uD83C\uDDED\uD83C\uDDF0', market: 'HK', secid: '100.HSI' },
+  NDX: { flag: '\uD83C\uDDFA\uD83C\uDDF8', market: 'US', secid: '100.NDX' },
+  SPX: { flag: '\uD83C\uDDFA\uD83C\uDDF8', market: 'US', secid: '100.SPX' },
+  N225: { flag: '\uD83C\uDDEF\uD83C\uDDF5', market: 'JP', secid: '100.N225' },
+  FTSE: { flag: '\uD83C\uDDEC\uD83C\uDDE7', market: 'EU', secid: '100.FTSE' },
+  KS11: { flag: '\uD83C\uDDF0\uD83C\uDDF7', market: 'KR', secid: '100.KS11' },
 }
 
 const SECIDS = Object.values(INDEX_META).map((m) => m.secid)
@@ -78,7 +78,7 @@ export async function fetchIndices(): Promise<IndexData[]> {
     )
 
     return data.data.diff
-      .filter((item: any) => typeof item.f2 === 'number' && item.f2 > 0)
+      .filter((item: any) => typeof item.f2 === 'number')
       .map((item: any) => {
         const code = String(item.f12)
         const meta = INDEX_META[code]
@@ -261,59 +261,47 @@ export async function searchFunds(keyword: string): Promise<FundSearchResult[]> 
   }
 }
 
-export async function searchStocks(keyword: string): Promise<StockSearchResult[]> {
+export async function searchAllStocks(keyword: string): Promise<StockSearchResult[]> {
   if (!keyword.trim()) return []
   try {
-    const varName = `sg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-    const url = `https://suggest3.sinajs.cn/suggest/type=11,12,13,14,15&key=${encodeURIComponent(keyword)}&name=${varName}`
+    const url = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(keyword)}&type=14&token=D43BF722C8E33BDC906FB84D85E326E8&count=20`
+    const data = await jsonp<any>(url, 'cb')
 
-    return new Promise((resolve) => {
-      const script = document.createElement('script')
-      let timer: ReturnType<typeof setTimeout>
+    if (!data.QuotationCodeTable?.Data) return []
 
-      const cleanup = () => {
-        clearTimeout(timer)
-        try { delete (window as any)[varName] } catch { /* noop */ }
-        if (script.parentNode) script.parentNode.removeChild(script)
-      }
+    const MARKET_MAP: Record<string, string> = {
+      '0': '深A', '1': '沪A',
+      '116': '港股', '128': '港股',
+      '105': '美股', '106': '美股', '107': '美股',
+      '129': '日股', '130': '日股',
+      '131': '韩股', '132': '韩股',
+    }
 
-      script.src = url
-      script.onload = () => {
-        const raw = (window as any)[varName] as string | undefined
-        if (!raw) { resolve([]); cleanup(); return }
-
-        const TYPE_MAP: Record<string, string> = {
-          '11': '沪A', '12': '深A', '13': '创业板', '14': '科创板', '15': '北A',
-        }
-
-        const results: StockSearchResult[] = raw
-          .split(';')
-          .filter(Boolean)
-          .map((entry) => {
-            const p = entry.split(',')
-            return { name: p[0], code: p[2], market: TYPE_MAP[p[1]] || '其他' }
-          })
-          .filter((r) => r.code && r.name && r.market !== '其他')
-          .slice(0, 15)
-
-        resolve(results)
-        cleanup()
-      }
-
-      script.onerror = () => { resolve([]); cleanup() }
-      timer = setTimeout(() => { resolve([]); cleanup() }, 8000)
-      document.head.appendChild(script)
-    })
+    return data.QuotationCodeTable.Data
+      .filter((item: any) => item.Code && item.Name)
+      .map((item: any) => ({
+        name: item.Name,
+        code: item.Code,
+        market: MARKET_MAP[String(item.MktNum)] || '其他',
+      }))
+      .filter((r: StockSearchResult) => r.market !== '其他')
   } catch {
     return []
   }
 }
 
+export async function searchStocks(keyword: string): Promise<StockSearchResult[]> {
+  return searchAllStocks(keyword)
+}
+
 /* ── Dynamic Stock Fetch ────────────────────── */
 
 function getSecid(code: string): string {
-  if (code.startsWith('6') || code.startsWith('9')) return `1.${code}`
-  return `0.${code}`
+  if (/^(6|9)\d{5}$/.test(code)) return `1.${code}`
+  if (/^\d{6}$/.test(code)) return `0.${code}`
+  if (/^\d{5}$/.test(code)) return `116.${code}`
+  if (/^\d{4}$/.test(code)) return `116.${code}`
+  return code
 }
 
 export async function fetchStocksByCodes(codes: string[]): Promise<StockData[]> {
@@ -324,7 +312,7 @@ export async function fetchStocksByCodes(codes: string[]): Promise<StockData[]> 
     const data = await jsonp<any>(url, 'cb')
     if (data.rc !== 0 || !data.data?.diff) return []
     return data.data.diff
-      .filter((item: any) => typeof item.f2 === 'number' && item.f2 > 0)
+      .filter((item: any) => typeof item.f2 === 'number')
       .map((item: any) => {
         const turnover = item.f6
         let turnoverStr: string
@@ -381,8 +369,8 @@ export async function fetchFundsByCodes(
         nav: nav.nav,
         navDate: nav.navDate,
         dayChange: nav.dayChange,
-        manager: item.manager || '—',
-        scale: '—',
+        manager: item.manager || undefined,
+        scale: undefined,
         returns: histories[i]?.returns,
         sparkline: histories[i]?.sparkline,
       }

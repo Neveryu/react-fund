@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Search, X, Plus, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { searchFunds, searchStocks } from '@/lib/client-api'
+import { searchFunds, searchAllStocks } from '@/lib/client-api'
 
 interface SearchResult {
   code: string
@@ -35,7 +35,6 @@ export default function SearchModal({
   const inputRef = useRef<HTMLInputElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-  // Focus input when opened
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 100)
@@ -44,7 +43,6 @@ export default function SearchModal({
     }
   }, [isOpen])
 
-  // Debounced search
   useEffect(() => {
     if (!query.trim()) {
       setResults([])
@@ -59,7 +57,7 @@ export default function SearchModal({
           const res = await searchFunds(query)
           setResults(res.map((r) => ({ code: r.code, name: r.name, extra: r.type, manager: r.manager })))
         } else {
-          const res = await searchStocks(query)
+          const res = await searchAllStocks(query)
           setResults(res.map((r) => ({ code: r.code, name: r.name, extra: r.market })))
         }
       } catch {
@@ -72,7 +70,6 @@ export default function SearchModal({
     return () => clearTimeout(timerRef.current)
   }, [query, type])
 
-  // Close on Escape
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -90,26 +87,15 @@ export default function SearchModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh]">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
+      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-lg mx-4 rounded-xl border border-border bg-card shadow-2xl animate-fade-up">
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border/50">
           <h3 className="text-base font-semibold">{title}</h3>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-md hover:bg-secondary transition-colors"
-          >
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-secondary transition-colors">
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
 
-        {/* Search input */}
         <div className="p-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -126,7 +112,6 @@ export default function SearchModal({
           </div>
         </div>
 
-        {/* Results */}
         <div className="max-h-80 overflow-y-auto scrollbar-thin">
           {results.length > 0 ? (
             <div className="px-2 pb-2 space-y-0.5">
@@ -145,18 +130,14 @@ export default function SearchModal({
                   >
                     <div className="flex-1 min-w-0 mr-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium truncate">
-                          {item.name}
-                        </span>
+                        <span className="text-sm font-medium truncate">{item.name}</span>
                         {item.extra && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground shrink-0">
                             {item.extra}
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {item.code}
-                      </span>
+                      <span className="text-xs text-muted-foreground">{item.code}</span>
                     </div>
                     <div
                       className={cn(
@@ -166,20 +147,14 @@ export default function SearchModal({
                           : 'bg-secondary text-muted-foreground hover:bg-primary/20 hover:text-primary'
                       )}
                     >
-                      {isAdded ? (
-                        <Check className="h-3.5 w-3.5" />
-                      ) : (
-                        <Plus className="h-3.5 w-3.5" />
-                      )}
+                      {isAdded ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
                     </div>
                   </button>
                 )
               })}
             </div>
           ) : query && !loading ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              未找到匹配结果
-            </div>
+            <div className="py-10 text-center text-sm text-muted-foreground">未找到匹配结果</div>
           ) : !query ? (
             <div className="py-10 text-center text-sm text-muted-foreground">
               {type === 'fund' ? '输入关键词搜索基金' : '输入关键词搜索股票'}
@@ -187,7 +162,6 @@ export default function SearchModal({
           ) : null}
         </div>
 
-        {/* Footer with count */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-border/50 text-xs text-muted-foreground">
           <span>
             已添加 {existingCodes.length} 个{type === 'fund' ? '基金' : '股票'}

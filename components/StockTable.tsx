@@ -34,8 +34,8 @@ export default function StockTable({ stocks, onRemove }: { stocks: StockData[]; 
   }
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <div className="overflow-x-auto scrollbar-thin">
+    <div className="rounded-lg border border-border overflow-hidden flex flex-col max-h-[60vh]">
+      <div className="overflow-x-auto scrollbar-thin flex-1">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-secondary/50">
@@ -134,6 +134,9 @@ export default function StockTable({ stocks, onRemove }: { stocks: StockData[]; 
             })}
           </tbody>
         </table>
+      </div>
+      <div className="flex items-center justify-between px-3 py-2 border-t border-border/50 text-xs text-muted-foreground bg-secondary/30 shrink-0">
+        <span>共 {stocks.length} 只股票</span>
       </div>
     </div>
   )

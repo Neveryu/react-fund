@@ -7,6 +7,7 @@ import StockTable from '@/components/StockTable'
 import FundCard from '@/components/FundCard'
 import FundRankingTable from '@/components/FundRankingTable'
 import SearchModal from '@/components/SearchModal'
+import ScrollToTop from '@/components/ScrollToTop'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   globalIndices as mockIndices,
@@ -38,11 +39,11 @@ export default function LiveDashboard() {
   const { fundList, stockCodes, addFund, removeFund, addStock, removeStock, mounted } =
     useWatchlist()
 
-  const [indices, setIndices] = useState<IndexData[]>(mockIndices)
+  const [indices, setIndices] = useState<IndexData[]>([])
   const [hotStocks, setHotStocks] = useState<StockData[]>(mockStocks)
   const [watchlistStocks, setWatchlistStocks] = useState<StockData[]>([])
   const [funds, setFunds] = useState<FundData[]>(mockFunds)
-  const [fundRanking, setFundRanking] = useState<FundRankingData[]>(mockFundRanking)
+  const [fundRanking, setFundRanking] = useState<FundRankingData[]>([])
   const [lastUpdate, setLastUpdate] = useState<string>('')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isLive, setIsLive] = useState(false)
@@ -167,6 +168,47 @@ export default function LiveDashboard() {
           </div>
         </section>
 
+        {/* Fund Tracker */}
+        <section id="funds">
+          <div className="flex items-center justify-between">
+            <SectionHeader title="基金跟踪" subtitle="实盘持仓净值跟踪" />
+            <button
+              onClick={() => setSearchType('fund')}
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-border/50 hover:bg-secondary transition-colors"
+              title="添加基金"
+            >
+              <Plus className="h-3.5 w-3.5 text-primary" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-2 mt-3">
+            {funds.length > 0 ? (
+              funds.map((fund) => (
+                <FundCard
+                  key={fund.code}
+                  data={fund}
+                  onRemove={() => removeFund(fund.code)}
+                />
+              ))
+            ) : (
+              <div className="col-span-full">
+                <EmptyWatchlist
+                  message="暂无跟踪基金"
+                  actionLabel="添加基金"
+                  onAction={() => setSearchType('fund')}
+                />
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Fund Ranking */}
+        <section id="fund-ranking">
+          <SectionHeader title="当日基金涨跌幅排行榜" subtitle="全市场基金实时排行" />
+          <div className="mt-4">
+            <FundRankingTable data={fundRanking} />
+          </div>
+        </section>
+
         {/* Stocks */}
         <section id="stocks">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -231,46 +273,6 @@ export default function LiveDashboard() {
           </div>
         </section>
 
-        {/* Fund Tracker */}
-        <section id="funds">
-          <div className="flex items-center justify-between">
-            <SectionHeader title="基金跟踪" subtitle="实盘持仓净值跟踪" />
-            <button
-              onClick={() => setSearchType('fund')}
-              className="flex h-7 w-7 items-center justify-center rounded-md border border-border/50 hover:bg-secondary transition-colors"
-              title="添加基金"
-            >
-              <Plus className="h-3.5 w-3.5 text-primary" />
-            </button>
-          </div>
-          <div className="grid grid-cols-1 gap-2 mt-3">
-            {funds.length > 0 ? (
-              funds.map((fund) => (
-                <FundCard
-                  key={fund.code}
-                  data={fund}
-                  onRemove={() => removeFund(fund.code)}
-                />
-              ))
-            ) : (
-              <div className="col-span-full">
-                <EmptyWatchlist
-                  message="暂无跟踪基金"
-                  actionLabel="添加基金"
-                  onAction={() => setSearchType('fund')}
-                />
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Fund Ranking */}
-        <section id="fund-ranking">
-          <SectionHeader title="当日基金涨跌幅排行榜" subtitle="全市场基金实时排行" />
-          <div className="mt-4">
-            <FundRankingTable data={fundRanking} />
-          </div>
-        </section>
       </div>
 
       {/* Search Modal */}
@@ -290,6 +292,7 @@ export default function LiveDashboard() {
           else removeStock(code)
         }}
       />
+      <ScrollToTop />
     </>
   )
 }
@@ -320,14 +323,14 @@ function StatCard({
 }) {
   const content = (
     <Card className="transition-colors hover:bg-secondary/50 cursor-pointer">
-      <CardContent className="flex items-center gap-3 p-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
+      <CardContent className="flex flex-col items-center text-center p-2 sm:p-3 sm:flex-row sm:text-left sm:gap-3">
+        <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-secondary mb-1 sm:mb-0">
           {icon}
         </div>
         <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="text-base font-bold leading-tight">{value}</p>
-          <p className="text-xs text-muted-foreground leading-tight">{sub}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground">{label}</p>
+          <p className="text-sm sm:text-base font-bold leading-tight">{value}</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight truncate">{sub}</p>
         </div>
       </CardContent>
     </Card>
