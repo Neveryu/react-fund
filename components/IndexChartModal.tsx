@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { X } from 'lucide-react'
 import type { IndexData } from '@/lib/data'
+import { fetchKline, INDEX_META } from '@/lib/client-api'
 
 interface KlineItem {
   date: string
@@ -34,17 +35,15 @@ export default function IndexChartModal({
   const [loading, setLoading] = useState(false)
   const [klt, setKlt] = useState<KltType>('day')
 
-  const fetchKline = useCallback(async () => {
+  const fetchKlineData = useCallback(async () => {
     if (!index) return
     setLoading(true)
     try {
-      const basePath = '/react-fund'
-      const res = await fetch(
-        `${basePath}/api/index-kline?code=${index.code}&klt=${klt}&lmt=120`
-      )
-      const result = await res.json()
-      if (result.data?.klines) {
-        setKlines(result.data.klines)
+      const meta = INDEX_META[index.code]
+      const secid = meta?.secid || index.code
+      const result = await fetchKline(secid, klt, 120)
+      if (result?.klines) {
+        setKlines(result.klines)
       } else {
         setKlines([])
       }
@@ -56,8 +55,8 @@ export default function IndexChartModal({
   }, [index, klt])
 
   useEffect(() => {
-    fetchKline()
-  }, [fetchKline])
+    fetchKlineData()
+  }, [fetchKlineData])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {

@@ -35,9 +35,106 @@ function jsonp<T>(url: string, callbackParam = 'cb'): Promise<T> {
   })
 }
 
+/* ── Helpers ───────────────────────────────── */
+
+function inferFundType(name: string): string {
+  if (name.includes('混合')) return '混合型'
+  if (name.includes('股票')) return '股票型'
+  if (name.includes('债券')) return '债券型'
+  if (name.includes('指数') || name.includes('ETF联接')) return '指数型'
+  if (name.includes('QDII')) return 'QDII'
+  if (name.includes('FOF')) return 'FOF'
+  if (name.includes('货币')) return '货币型'
+  return '其他'
+}
+
+/** Load a script tag and resolve with the value of a global variable set by it. */
+function loadScriptVar<T>(src: string, varName: string, timeout = 8000): Promise<T | null> {
+  return new Promise((resolve) => {
+    const script = document.createElement('script')
+    let done = false
+
+    const cleanup = () => {
+      done = true
+      if (script.parentNode) script.parentNode.removeChild(script)
+    }
+
+    script.onload = () => {
+      if (done) return
+      const val = (window as any)[varName]
+      resolve(val ?? null)
+      cleanup()
+    }
+
+    script.onerror = () => {
+      if (!done) resolve(null)
+      cleanup()
+    }
+
+    script.src = src
+    document.head.appendChild(script)
+
+    setTimeout(() => {
+      if (!done) {
+        resolve(null)
+        cleanup()
+      }
+    }, timeout)
+  })
+}
+
+/* ── Kline ──────────────────────────────────── */
+
+interface KlineRaw {
+  date: string
+  open: number
+  close: number
+  high: number
+  low: number
+  volume: number
+  change: number
+  changePercent: number
+}
+
+const KLT_CODE: Record<string, string> = {
+  day: '101',
+  week: '102',
+  month: '103',
+}
+
+/** Fetch kline data via JSONP from Eastmoney push2his API */
+export async function fetchKline(
+  secid: string,
+  klt: string = 'day',
+  lmt: number = 120
+): Promise<{ name: string; code: string; klines: KlineRaw[] } | null> {
+  try {
+    const kltCode = KLT_CODE[klt] || '101'
+    const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secid}&klt=${kltCode}&fqt=1&lmt=${lmt}&end=20500101&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61`
+    const data = await jsonp<any>(url, 'callback')
+    if (!data.data?.klines?.length) return null
+    const klines = data.data.klines.map((line: string) => {
+      const p = line.split(',')
+      return {
+        date: p[0],
+        open: parseFloat(p[1]),
+        close: parseFloat(p[2]),
+        high: parseFloat(p[3]),
+        low: parseFloat(p[4]),
+        volume: parseFloat(p[5]),
+        change: parseFloat(p[8] || '0'),
+        changePercent: parseFloat(p[9] || '0'),
+      }
+    })
+    return { name: data.data.name || '', code: secid, klines }
+  } catch {
+    return null
+  }
+}
+
 /* ── Indices ───────────────────────────────────── */
 
-const INDEX_META: Record<string, { flag: string; market: string; secid: string }> = {
+export const INDEX_META: Record<string, { flag: string; market: string; secid: string }> = {
   '000001': { flag: '\uD83C\uDDE8\uD83C\uDDF3', market: 'CN', secid: '1.000001' },
   '399001': { flag: '\uD83C\uDDE8\uD83C\uDDF3', market: 'CN', secid: '0.399001' },
   '399006': { flag: '\uD83C\uDDE8\uD83C\uDDF3', market: 'CN', secid: '0.399006' },
@@ -191,18 +288,67 @@ function fetchFundNav(
   })
 }
 
+/**
+ * Fetch fund history (returns & sparkline) by loading pingzhongdata JS directly.
+ * The .js file sets global variables (Data_netWorthTrend, syl_1y, etc.)
+ */
 async function fetchFundHistory(
   code: string
 ): Promise<{ returns: NonNullable<FundData['returns']>; sparkline: number[] } | null> {
-  try {
-    const basePath = '/react-fund'
-    const res = await fetch(`${basePath}/api/fund-history?code=${code}`)
-    const result = await res.json()
-    if (!result.returns) return null
-    return result as { returns: NonNullable<FundData['returns']>; sparkline: number[] }
-  } catch {
+  // Pre-cleanup globals
+  ;(window as any).Data_netWorthTrend = undefined
+  ;(window as any).syl_1y = undefined
+  ;(window as any).syl_3y = undefined
+  ;(window as any).syl_6y = undefined
+  ;(window as any).syl_1n = undefined
+
+  const result = await loadScriptVar<any>(
+    `https://fund.eastmoney.com/pingzhongdata/${code}.js?v=${Date.now()}`,
+    'Data_netWorthTrend',
+    8000
+  )
+
+  // After the script loads, read all the globals
+  const Data_netWorthTrend = (window as any).Data_netWorthTrend
+  const syl_1y = (window as any).syl_1y
+  const syl_3y = (window as any).syl_3y
+  const syl_6y = (window as any).syl_6y
+  const syl_1n = (window as any).syl_1n
+
+  if (!syl_1y && !syl_3y && !syl_6y && !syl_1n) {
     return null
   }
+
+  let oneWeek = 0
+  let sparkline: number[] = []
+
+  if (Array.isArray(Data_netWorthTrend)) {
+    const navList = Data_netWorthTrend.map((item: any) => item.y)
+    const len = navList.length
+    if (len >= 6) {
+      const cur = navList[len - 1]
+      const weekAgo = navList[len - 6]
+      oneWeek = weekAgo ? ((cur - weekAgo) / weekAgo) * 100 : 0
+    }
+    sparkline = navList.slice(-15)
+  }
+
+  const returns = {
+    oneWeek,
+    oneMonth: parseFloat(syl_1y || '0'),
+    threeMonth: parseFloat(syl_3y || '0'),
+    sixMonth: parseFloat(syl_6y || '0'),
+    oneYear: parseFloat(syl_1n || '0'),
+  }
+
+  // Cleanup — set to undefined instead of delete (var-declared globals may be non-configurable)
+  ;(window as any).Data_netWorthTrend = undefined
+  ;(window as any).syl_1y = undefined
+  ;(window as any).syl_3y = undefined
+  ;(window as any).syl_6y = undefined
+  ;(window as any).syl_1n = undefined
+
+  return { returns, sparkline }
 }
 
 /* ── Search APIs ──────────────────────────────── */
@@ -388,15 +534,39 @@ export async function fetchFunds(): Promise<FundData[]> {
 
 /* ── Fund Ranking ───────────────────────────── */
 
+/** Load fund ranking data directly from Eastmoney rankhandler API.
+ *  The API returns `var rankData = {datas:[...]}` — we load it as a script and read the global. */
 export async function fetchFundRanking(): Promise<FundRankingData[]> {
-  try {
-    const basePath = '/react-fund'
-    const res = await fetch(`${basePath}/api/fund-ranking?pn=20`)
-    const result = await res.json()
-    if (!result.data?.length) return []
-    return result.data
-  } catch (err) {
-    console.error('fetchFundRanking error:', err)
-    return []
-  }
+  const today = new Date()
+  const oneYearAgo = new Date(today)
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+  const sd = oneYearAgo.toISOString().split('T')[0]
+  const ed = today.toISOString().split('T')[0]
+
+  const src = `https://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=all&rs=&gs=0&sc=zzf&st=desc&sd=${sd}&ed=${ed}&qdii=&tabSubtype=,,,,,&pi=1&pn=20&dx=1&v=${Date.now()}`
+
+  ;(window as any).rankData = undefined
+  const raw = await loadScriptVar<{ datas: string[] }>(src, 'rankData', 10000)
+
+  if (!raw?.datas?.length) return []
+
+  const funds = raw.datas
+    .map((item: string) => {
+      const p = item.split(',')
+      const name = p[1] || ''
+      return {
+        code: p[0] || '',
+        name,
+        type: inferFundType(name),
+        nav: parseFloat(p[4]) || 0,
+        navDate: p[3] || '',
+        dayChange: parseFloat(p[6]) || 0,
+        weekChange: parseFloat(p[7]) || 0,
+        monthChange: parseFloat(p[8]) || 0,
+      }
+    })
+    .filter((f: FundRankingData) => f.code && f.nav > 0)
+
+  ;(window as any).rankData = undefined
+  return funds
 }

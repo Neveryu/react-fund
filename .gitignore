@@ -1,4 +1,4 @@
-/node_modules
+node_modules
 /.pnp
 .pnp.js
 /coverage
@@ -14,3 +14,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 setup.sh
+.vercel-tmp/
+nul
