@@ -195,35 +195,11 @@ async function fetchFundHistory(
   code: string
 ): Promise<{ returns: NonNullable<FundData['returns']>; sparkline: number[] } | null> {
   try {
-    const url = `https://api.fund.eastmoney.com/f10/lsjz?fundCode=${code}&pageIndex=1&pageSize=250`
-    const data = await jsonp<any>(url, 'callback')
-
-    if (!data.Data?.LSJZList?.length) return null
-
-    const navList: number[] = data.Data.LSJZList.map((item: any) =>
-      parseFloat(item.DWJZ)
-    ).reverse()
-
-    const len = navList.length
-    const cur = navList[len - 1]
-
-    const ret = (lb: number) => {
-      const idx = len - 1 - lb
-      if (idx < 0) return 0
-      const p = navList[idx]
-      return p ? ((cur - p) / p) * 100 : 0
-    }
-
-    return {
-      returns: {
-        oneWeek: ret(5),
-        oneMonth: ret(22),
-        threeMonth: ret(65),
-        sixMonth: ret(130),
-        oneYear: len > 245 ? ret(245) : ret(len - 1),
-      },
-      sparkline: navList.slice(Math.max(0, len - 15)),
-    }
+    const basePath = '/react-fund'
+    const res = await fetch(`${basePath}/api/fund-history?code=${code}`)
+    const result = await res.json()
+    if (!result.returns) return null
+    return result as { returns: NonNullable<FundData['returns']>; sparkline: number[] }
   } catch {
     return null
   }
@@ -414,24 +390,11 @@ export async function fetchFunds(): Promise<FundData[]> {
 
 export async function fetchFundRanking(): Promise<FundRankingData[]> {
   try {
-    const url = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=20&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:7,m:0+t:8,m:0+t:9,m:0+t:10,m:0+t:11,m:0+t:12,m:0+t:13,m:0+t:14&fields=f2,f3,f4,f12,f13,f14,f128,f136,f137,f140,f141&_=${Date.now()}`
-    const data = await jsonp<any>(url, 'cb')
-
-    if (data.rc !== 0 || !data.data?.diff) return []
-
-    return data.data.diff
-      .filter((item: any) => typeof item.f2 === 'number' && item.f2 > 0)
-      .map((item: any) => ({
-        name: item.f14,
-        code: String(item.f12),
-        type: item.f136 || '基金',
-        nav: item.f2,
-        navDate: item.f137 || '',
-        dayChange: item.f3,
-        weekChange: item.f137 ? parseFloat(item.f137) : 0,
-        monthChange: item.f140 ? parseFloat(item.f140) : 0,
-      }))
-      .sort((a: FundRankingData, b: FundRankingData) => b.dayChange - a.dayChange)
+    const basePath = '/react-fund'
+    const res = await fetch(`${basePath}/api/fund-ranking?pn=20`)
+    const result = await res.json()
+    if (!result.data?.length) return []
+    return result.data
   } catch (err) {
     console.error('fetchFundRanking error:', err)
     return []

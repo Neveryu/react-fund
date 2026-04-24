@@ -2,13 +2,21 @@ import { cn } from '@/lib/utils'
 import MiniChart from '@/components/MiniChart'
 import type { IndexData } from '@/lib/data'
 
-export default function IndexCard({ data }: { data: IndexData }) {
+export default function IndexCard({
+  data,
+  onClick,
+}: {
+  data: IndexData
+  onClick?: (data: IndexData) => void
+}) {
   const isPositive = data.changePercent >= 0
 
   return (
     <div
+      onClick={() => onClick?.(data)}
       className={cn(
         'flex items-center justify-between gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-secondary/50',
+        onClick && 'cursor-pointer'
       )}
     >
       <div className="flex items-center gap-2 min-w-0">

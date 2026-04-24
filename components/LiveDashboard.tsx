@@ -8,6 +8,7 @@ import FundCard from '@/components/FundCard'
 import FundRankingTable from '@/components/FundRankingTable'
 import SearchModal from '@/components/SearchModal'
 import ScrollToTop from '@/components/ScrollToTop'
+import IndexChartModal from '@/components/IndexChartModal'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   globalIndices as mockIndices,
@@ -50,6 +51,7 @@ export default function LiveDashboard() {
 
   const [stockTab, setStockTab] = useState<'hot' | 'watchlist'>('hot')
   const [searchType, setSearchType] = useState<'fund' | 'stock' | null>(null)
+  const [selectedIndex, setSelectedIndex] = useState<IndexData | null>(null)
 
   const fetchAllData = useCallback(async () => {
     setIsRefreshing(true)
@@ -163,7 +165,7 @@ export default function LiveDashboard() {
           <SectionHeader title="全球指数" subtitle="主要市场实时行情" />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mt-4">
             {indices.map((index) => (
-              <IndexCard key={index.code} data={index} />
+              <IndexCard key={index.code} data={index} onClick={setSelectedIndex} />
             ))}
           </div>
         </section>
@@ -292,6 +294,7 @@ export default function LiveDashboard() {
           else removeStock(code)
         }}
       />
+      <IndexChartModal index={selectedIndex} onClose={() => setSelectedIndex(null)} />
       <ScrollToTop />
     </>
   )
