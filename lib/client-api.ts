@@ -208,13 +208,13 @@ export async function fetchHotStocks(): Promise<StockData[]> {
     return data.data.diff
       .filter((item: any) => typeof item.f2 === 'number' && item.f2 > 0)
       .map((item: any) => {
-        const turnover = item.f6
+        const turnover = typeof item.f6 === 'number' ? item.f6 : 0
         let turnoverStr: string
         if (turnover >= 1e8) turnoverStr = (turnover / 1e8).toFixed(1) + '亿'
         else if (turnover >= 1e4) turnoverStr = (turnover / 1e4).toFixed(1) + '万'
         else turnoverStr = String(turnover)
 
-        const volume = item.f5
+        const volume = typeof item.f5 === 'number' ? item.f5 : 0
         let volumeStr: string
         if (volume >= 1e4) volumeStr = (volume / 1e4).toFixed(1) + '万手'
         else volumeStr = volume + '手'
@@ -227,8 +227,8 @@ export async function fetchHotStocks(): Promise<StockData[]> {
           changePercent: item.f3,
           volume: volumeStr,
           turnover: turnoverStr,
-          high: item.f15,
-          low: item.f16,
+          high: typeof item.f15 === 'number' ? item.f15 : 0,
+          low: typeof item.f16 === 'number' ? item.f16 : 0,
         }
       })
   } catch (err) {
@@ -436,12 +436,12 @@ export async function fetchStocksByCodes(codes: string[]): Promise<StockData[]> 
     return data.data.diff
       .filter((item: any) => typeof item.f2 === 'number')
       .map((item: any) => {
-        const turnover = item.f6
+        const turnover = typeof item.f6 === 'number' ? item.f6 : 0
         let turnoverStr: string
         if (turnover >= 1e8) turnoverStr = (turnover / 1e8).toFixed(1) + '亿'
         else if (turnover >= 1e4) turnoverStr = (turnover / 1e4).toFixed(1) + '万'
         else turnoverStr = String(turnover)
-        const volume = item.f5
+        const volume = typeof item.f5 === 'number' ? item.f5 : 0
         let volumeStr: string
         if (volume >= 1e4) volumeStr = (volume / 1e4).toFixed(1) + '万手'
         else volumeStr = volume + '手'
@@ -453,8 +453,8 @@ export async function fetchStocksByCodes(codes: string[]): Promise<StockData[]> 
           changePercent: item.f3,
           volume: volumeStr,
           turnover: turnoverStr,
-          high: item.f15,
-          low: item.f16,
+          high: typeof item.f15 === 'number' ? item.f15 : 0,
+          low: typeof item.f16 === 'number' ? item.f16 : 0,
         }
       })
   } catch (err) {
