@@ -110,20 +110,26 @@ export async function fetchKline(
 ): Promise<{ name: string; code: string; klines: KlineRaw[] } | null> {
   try {
     const kltCode = KLT_CODE[klt] || '101'
-    const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secid}&klt=${kltCode}&fqt=1&lmt=${lmt}&end=20500101&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61`
+    // Use same fields as the working sparkline code in fetchIndices
+    const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secid}&klt=${kltCode}&fqt=1&lmt=${lmt}&end=20500101&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57,f58`
     const data = await jsonp<any>(url, 'callback')
     if (!data.data?.klines?.length) return null
     const klines = data.data.klines.map((line: string) => {
       const p = line.split(',')
+      const open = parseFloat(p[1])
+      const close = parseFloat(p[2])
+      // Compute change from open/close
+      const change = close - open
+      const changePercent = open ? (change / open) * 100 : 0
       return {
         date: p[0],
-        open: parseFloat(p[1]),
-        close: parseFloat(p[2]),
+        open,
+        close,
         high: parseFloat(p[3]),
         low: parseFloat(p[4]),
         volume: parseFloat(p[5]),
-        change: parseFloat(p[8] || '0'),
-        changePercent: parseFloat(p[9] || '0'),
+        change,
+        changePercent,
       }
     })
     return { name: data.data.name || '', code: secid, klines }
