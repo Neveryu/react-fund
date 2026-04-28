@@ -571,7 +571,6 @@ export async function fetchFundDetail(code: string): Promise<FundDetail | null> 
       const holdingsUrl = `https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=${code}&topline=10&year=&month=&_=${Date.now()}`
       
       const holdingsData = await jsonp<any>(holdingsUrl, 'callback')
-      console.log('[fetchFundDetail] holdingsData:', JSON.stringify(holdingsData)?.substring(0, 1000))
       
       // 尝试从不同数据结构中获取持仓
       const holdingsArray = holdingsData?.content || holdingsData?.datas || 
@@ -604,41 +603,11 @@ export async function fetchFundRanking(): Promise<FundRankingData[]> {
 
   let itemStrings: string[] = []
 
-  // Use fetch + regex parse (script tag can't set Referer header which API requires)
-  try {
-    const resp = await fetch(url, {
-      headers: {
-        'Referer': 'https://fund.eastmoney.com/data/fundranking.html',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-    })
-    const text = await resp.text()
-    // Parse: var rankData = {datas:["item1,item2,...", "item2,item2,..."], ...}
-    // Each item is a quoted string: "code,name,..." — extract with "([^"]*)" regex
-    const itemMatches = text.matchAll(/"([^"]*)"/g)
-    for (const m of itemMatches) {
-      const val = m[1]
-      // Items start with a 6-digit fund code followed by comma
-      if (/^\d{6},/.test(val)) {
-        itemStrings.push(val)
-      }
-      // Stop after we collect the items (there are other quoted fields after datas[])
-      if (itemStrings.length > 0 && !val.includes(',')) {
-        // Hit a non-comma field, stop
-        break
-      }
-    }
-  } catch (e) {
-    console.error('fetchFundRanking fetch failed:', e)
-  }
-
-  // Fallback: try script tag
-  if (!itemStrings.length) {
-    ;(window as any).rankData = undefined
-    const fallback = await loadScriptVar<{ datas: string[] }>(url, 'rankData', 8000)
-    if (fallback?.datas?.length) {
-      itemStrings = fallback.datas
-    }
+  // 使用 script 标签方式（不受 CORS 限制）
+  ;(window as any).rankData = undefined
+  const data = await loadScriptVar<{ datas: string[] }>(url, 'rankData', 8000)
+  if (data?.datas?.length) {
+    itemStrings = data.datas
   }
 
   if (!itemStrings.length) return []
