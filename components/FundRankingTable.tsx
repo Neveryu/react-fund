@@ -5,9 +5,9 @@ import { cn } from '@/lib/utils'
 import type { FundRankingData } from '@/lib/data'
 import { ArrowUpDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
-type SortKey = 'dayChange' | 'weekChange' | 'monthChange'
+type SortKey = 'dayChange' | 'weekChange' | 'monthChange' | 'threeMonth' | 'sixMonth' | 'oneYear' | 'twoYear'
 
-export default function FundRankingTable({ data }: { data: FundRankingData[] }) {
+export default function FundRankingTable({ data, onSelectFund }: { data: FundRankingData[]; onSelectFund?: (fund: FundRankingData) => void }) {
   const [sortKey, setSortKey] = useState<SortKey>('dayChange')
   const [sortDesc, setSortDesc] = useState(true)
 
@@ -94,6 +94,38 @@ export default function FundRankingTable({ data }: { data: FundRankingData[] }) 
                   近1月 <SortIcon column="monthChange" />
                 </span>
               </th>
+              <th
+                className="text-right p-3 text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors hidden lg:table-cell"
+                onClick={() => toggleSort('threeMonth')}
+              >
+                <span className="inline-flex items-center gap-1">
+                  近3月 <SortIcon column="threeMonth" />
+                </span>
+              </th>
+              <th
+                className="text-right p-3 text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors hidden lg:table-cell"
+                onClick={() => toggleSort('sixMonth')}
+              >
+                <span className="inline-flex items-center gap-1">
+                  近6月 <SortIcon column="sixMonth" />
+                </span>
+              </th>
+              <th
+                className="text-right p-3 text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors hidden xl:table-cell"
+                onClick={() => toggleSort('oneYear')}
+              >
+                <span className="inline-flex items-center gap-1">
+                  近1年 <SortIcon column="oneYear" />
+                </span>
+              </th>
+              <th
+                className="text-right p-3 text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors hidden xl:table-cell"
+                onClick={() => toggleSort('twoYear')}
+              >
+                <span className="inline-flex items-center gap-1">
+                  近2年 <SortIcon column="twoYear" />
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -101,9 +133,10 @@ export default function FundRankingTable({ data }: { data: FundRankingData[] }) 
               <tr
                 key={fund.code}
                 className={cn(
-                  'border-t border-border/50 transition-colors hover:bg-secondary/30',
+                  'border-t border-border/50 transition-colors hover:bg-secondary/30 cursor-pointer',
                   i % 2 === 0 ? 'bg-transparent' : 'bg-secondary/10'
                 )}
+                onClick={() => onSelectFund?.(fund)}
               >
                 <td className="p-3">
                   <span
@@ -135,6 +168,18 @@ export default function FundRankingTable({ data }: { data: FundRankingData[] }) 
                 </td>
                 <td className="text-right p-3 hidden md:table-cell">
                   {renderChange(fund.monthChange)}
+                </td>
+                <td className="text-right p-3 hidden lg:table-cell">
+                  {renderChange(fund.threeMonth)}
+                </td>
+                <td className="text-right p-3 hidden lg:table-cell">
+                  {renderChange(fund.sixMonth)}
+                </td>
+                <td className="text-right p-3 hidden xl:table-cell">
+                  {renderChange(fund.oneYear)}
+                </td>
+                <td className="text-right p-3 hidden xl:table-cell">
+                  {renderChange(fund.twoYear)}
                 </td>
               </tr>
             ))}

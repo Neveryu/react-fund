@@ -8,6 +8,11 @@ export interface WatchlistFund {
   manager?: string
 }
 
+export interface WatchlistStock {
+  code: string
+  market?: string
+}
+
 const FUND_KEY = 'watchlist-funds'
 const STOCK_KEY = 'watchlist-stocks'
 
@@ -22,7 +27,7 @@ export const DEFAULT_FUNDS: WatchlistFund[] = [
 
 export function useWatchlist() {
   const [fundList, setFundListState] = useState<WatchlistFund[]>(DEFAULT_FUNDS)
-  const [stockCodes, setStockCodesState] = useState<string[]>([])
+  const [stockList, setStockListState] = useState<WatchlistStock[]>([])
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -31,7 +36,15 @@ export function useWatchlist() {
       const savedFunds = localStorage.getItem(FUND_KEY)
       const savedStocks = localStorage.getItem(STOCK_KEY)
       if (savedFunds) setFundListState(JSON.parse(savedFunds))
-      if (savedStocks) setStockCodesState(JSON.parse(savedStocks))
+      if (savedStocks) {
+        const parsed = JSON.parse(savedStocks)
+        // Backward compatibility: old format was string[]
+        if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+          setStockListState(parsed.map((c: string) => ({ code: c })))
+        } else {
+          setStockListState(parsed)
+        }
+      }
     } catch {
       /* ignore */
     }
@@ -54,22 +67,22 @@ export function useWatchlist() {
     })
   }, [])
 
-  const addStock = useCallback((code: string) => {
-    setStockCodesState((prev) => {
-      if (prev.includes(code)) return prev
-      const next = [...prev, code]
+  const addStock = useCallback((code: string, market?: string) => {
+    setStockListState((prev) => {
+      if (prev.some((s) => s.code === code)) return prev
+      const next = [...prev, { code, market }]
       localStorage.setItem(STOCK_KEY, JSON.stringify(next))
       return next
     })
   }, [])
 
   const removeStock = useCallback((code: string) => {
-    setStockCodesState((prev) => {
-      const next = prev.filter((c) => c !== code)
+    setStockListState((prev) => {
+      const next = prev.filter((s) => s.code !== code)
       localStorage.setItem(STOCK_KEY, JSON.stringify(next))
       return next
     })
   }, [])
 
-  return { fundList, stockCodes, addFund, removeFund, addStock, removeStock, mounted }
+  return { fundList, stockList, addFund, removeFund, addStock, removeStock, mounted }
 }

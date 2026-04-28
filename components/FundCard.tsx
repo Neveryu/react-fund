@@ -97,34 +97,6 @@ export default function FundCard({ data, onRemove }: { data: FundData; onRemove?
             {periodReturn.toFixed(2)}%
           </span>
         </div>
-
-        {data.sparkline && data.sparkline.length >= 2 && (
-          <div className="w-16 h-8 opacity-70 hidden md:block shrink-0">
-            <svg width={64} height={32} viewBox="0 0 64 32" className="overflow-visible">
-              {(() => {
-                const d = data.sparkline
-                const min = Math.min(...d)
-                const max = Math.max(...d)
-                const range = max - min || 1
-                const pts = d.map((v, i) => ({
-                  x: (i / (d.length - 1)) * 64,
-                  y: 30 - ((v - min) / range) * 26,
-                }))
-                const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-                return (
-                  <path
-                    d={line}
-                    fill="none"
-                    stroke={isPositive ? 'hsl(var(--success))' : 'hsl(var(--destructive))'}
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                )
-              })()}
-            </svg>
-          </div>
-        )}
       </div>
     </div>
   )

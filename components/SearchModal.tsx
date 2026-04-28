@@ -60,7 +60,11 @@ export default function SearchModal({
           setResults(res.map((r) => ({ code: r.code, name: r.name, extra: r.type, manager: r.manager })))
         } else {
           const res = await searchStocks(query)
-          setResults(res.map((r) => ({ code: r.code, name: r.name, extra: r.market })))
+          setResults(res.map((r) => ({
+            code: r.code,       // QuoteID (secid) for storage and API: "105.TSLA"
+            name: r.name,
+            extra: r.ticker,    // Human-readable ticker for display: "TSLA"
+          })))
         }
       } catch {
         setResults([])

@@ -102,7 +102,6 @@ const KLT_CODE: Record<string, string> = {
   month: '103',
 }
 
-/** Fetch kline data via JSONP from Eastmoney push2his API */
 export async function fetchKline(
   secid: string,
   klt: string = 'day',
@@ -110,7 +109,6 @@ export async function fetchKline(
 ): Promise<{ name: string; code: string; klines: KlineRaw[] } | null> {
   try {
     const kltCode = KLT_CODE[klt] || '101'
-    // Use same fields as the working sparkline code in fetchIndices
     const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secid}&klt=${kltCode}&fqt=1&lmt=${lmt}&end=20500101&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57,f58`
     const data = await jsonp<any>(url, 'callback')
     if (!data.data?.klines?.length) return null
@@ -118,7 +116,6 @@ export async function fetchKline(
       const p = line.split(',')
       const open = parseFloat(p[1])
       const close = parseFloat(p[2])
-      // Compute change from open/close
       const change = close - open
       const changePercent = open ? (change / open) * 100 : 0
       return {
@@ -159,9 +156,10 @@ export async function fetchIndices(): Promise<IndexData[]> {
     const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${SECIDS.join(',')}&fields=f1,f2,f3,f4,f12,f13,f14&_=${Date.now()}`
     const data = await jsonp<any>(url, 'cb')
 
-    if (data.rc !== 0 || !data.data?.diff) return []
+    if (data.rc !== 0 || !data.data?.diff) {
+      return []
+    }
 
-    // Fetch sparkline kline data in parallel
     const sparklineMap = new Map<string, number[]>()
     await Promise.all(
       Object.entries(INDEX_META).map(async ([code, meta]) => {
@@ -197,7 +195,7 @@ export async function fetchIndices(): Promise<IndexData[]> {
         }
       })
   } catch (err) {
-    console.error('fetchIndices error:', err)
+    console.error('[fetchIndices] Request failed:', err)
     return []
   }
 }
@@ -254,7 +252,6 @@ const FUND_CONFIG = [
   { code: '000051', type: '指数型', manager: '张弘弢', scale: '345.6亿' },
 ]
 
-/** fundgz uses hardcoded 'jsonpgz' callback → must be sequential */
 function fetchFundNav(
   code: string
 ): Promise<{ name: string; nav: number; dayChange: number; navDate: string } | null> {
@@ -294,27 +291,21 @@ function fetchFundNav(
   })
 }
 
-/**
- * Fetch fund history (returns & sparkline) by loading pingzhongdata JS directly.
- * The .js file sets global variables (Data_netWorthTrend, syl_1y, etc.)
- */
 async function fetchFundHistory(
   code: string
 ): Promise<{ returns: NonNullable<FundData['returns']>; sparkline: number[] } | null> {
-  // Pre-cleanup globals
   ;(window as any).Data_netWorthTrend = undefined
   ;(window as any).syl_1y = undefined
   ;(window as any).syl_3y = undefined
   ;(window as any).syl_6y = undefined
   ;(window as any).syl_1n = undefined
 
-  const result = await loadScriptVar<any>(
+  await loadScriptVar<any>(
     `https://fund.eastmoney.com/pingzhongdata/${code}.js?v=${Date.now()}`,
     'Data_netWorthTrend',
     8000
   )
 
-  // After the script loads, read all the globals
   const Data_netWorthTrend = (window as any).Data_netWorthTrend
   const syl_1y = (window as any).syl_1y
   const syl_3y = (window as any).syl_3y
@@ -347,7 +338,6 @@ async function fetchFundHistory(
     oneYear: parseFloat(syl_1n || '0'),
   }
 
-  // Cleanup — set to undefined instead of delete (var-declared globals may be non-configurable)
   ;(window as any).Data_netWorthTrend = undefined
   ;(window as any).syl_1y = undefined
   ;(window as any).syl_3y = undefined
@@ -370,6 +360,7 @@ export interface StockSearchResult {
   code: string
   name: string
   market: string
+  ticker: string
 }
 
 export async function searchFunds(keyword: string): Promise<FundSearchResult[]> {
@@ -405,15 +396,20 @@ export async function searchAllStocks(keyword: string): Promise<StockSearchResul
       '131': '韩股', '132': '韩股',
     }
 
-    return data.QuotationCodeTable.Data
-      .filter((item: any) => item.Code && item.Name)
+    const results = data.QuotationCodeTable.Data
+      .filter((item: any) => item.Code && item.Name && item.QuoteID)
       .map((item: any) => ({
         name: item.Name,
-        code: item.Code,
+        code: item.QuoteID,
+        ticker: item.Code,
         market: MARKET_MAP[String(item.MktNum)] || '其他',
       }))
       .filter((r: StockSearchResult) => r.market !== '其他')
-  } catch {
+
+    console.log('[searchAllStocks]', keyword, '→', results.map((r: StockSearchResult) => ({ n: r.name, code: r.code, ticker: r.ticker, m: r.market })))
+    return results
+  } catch (err) {
+    console.error('searchAllStocks error:', err)
     return []
   }
 }
@@ -424,20 +420,14 @@ export async function searchStocks(keyword: string): Promise<StockSearchResult[]
 
 /* ── Dynamic Stock Fetch ────────────────────── */
 
-function getSecid(code: string): string {
-  if (/^(6|9)\d{5}$/.test(code)) return `1.${code}`
-  if (/^\d{6}$/.test(code)) return `0.${code}`
-  if (/^\d{5}$/.test(code)) return `116.${code}`
-  if (/^\d{4}$/.test(code)) return `116.${code}`
-  return code
-}
-
 export async function fetchStocksByCodes(codes: string[]): Promise<StockData[]> {
   if (!codes.length) return []
   try {
-    const secids = codes.map(getSecid).join(',')
+    const secids = codes.join(',')
     const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${secids}&fields=f2,f3,f4,f5,f6,f12,f14,f15,f16&_=${Date.now()}`
+    console.log('[fetchStocksByCodes] codes:', codes, '→ secids:', secids)
     const data = await jsonp<any>(url, 'cb')
+    console.log('[fetchStocksByCodes] rc:', data?.rc, 'diff count:', data?.data?.diff?.length)
     if (data.rc !== 0 || !data.data?.diff) return []
     return data.data.diff
       .filter((item: any) => typeof item.f2 === 'number')
@@ -506,13 +496,9 @@ export async function fetchFundsByCodes(
     .filter(Boolean) as FundData[]
 }
 
-/* ── Funds (legacy with hardcoded config) ───── */
-
 export async function fetchFunds(): Promise<FundData[]> {
-  // History uses unique callbacks → safe to parallelize
   const historyPromises = FUND_CONFIG.map((c) => fetchFundHistory(c.code))
 
-  // NAV uses shared 'jsonpgz' → must be sequential
   const navs: (Awaited<ReturnType<typeof fetchFundNav>>)[] = []
   for (const config of FUND_CONFIG) {
     navs.push(await fetchFundNav(config.code))
@@ -538,25 +524,126 @@ export async function fetchFunds(): Promise<FundData[]> {
   }).filter(Boolean) as FundData[]
 }
 
+/* ── Fund Detail ────────────────────────────── */
+
+export interface FundDetail {
+  manager?: string
+  scale?: string
+  holdings?: {
+    name: string
+    code: string
+    percent: number
+  }[]
+}
+
+export async function fetchFundDetail(code: string): Promise<FundDetail | null> {
+  try {
+    const result: FundDetail = {}
+    
+    // 获取基金经理和基金规模
+    const detailUrl = `https://fund.eastmoney.com/pingzhongdata/${code}.js?v=${Date.now()}`
+    await loadScriptVar<any>(detailUrl, 'Data_currentFundManager', 8000)
+    
+    const Data_currentFundManager = (window as any).Data_currentFundManager
+    const Data_fundInfo = (window as any).Data_fundInfo
+    
+    // 基金经理
+    if (Data_currentFundManager && Array.isArray(Data_currentFundManager) && Data_currentFundManager.length > 0) {
+      result.manager = Data_currentFundManager[0].name
+    }
+    
+    // 基金规模
+    if (Data_fundInfo && Data_fundInfo.FUND_SCALE) {
+      const scale = parseFloat(Data_fundInfo.FUND_SCALE)
+      if (scale >= 1) {
+        result.scale = scale.toFixed(2) + '亿'
+      } else {
+        result.scale = (scale * 10000).toFixed(2) + '万'
+      }
+    }
+    
+    // 清理
+    ;(window as any).Data_currentFundManager = undefined
+    ;(window as any).Data_fundInfo = undefined
+    
+    // 获取持仓信息 - 使用 JSONP 方式（不受 CORS 限制）
+    try {
+      const holdingsUrl = `https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=${code}&topline=10&year=&month=&_=${Date.now()}`
+      
+      const holdingsData = await jsonp<any>(holdingsUrl, 'callback')
+      console.log('[fetchFundDetail] holdingsData:', JSON.stringify(holdingsData)?.substring(0, 1000))
+      
+      // 尝试从不同数据结构中获取持仓
+      const holdingsArray = holdingsData?.content || holdingsData?.datas || 
+                           (holdingsData?.Array && holdingsData.Array[0]?.holdingList) ||
+                           (Array.isArray(holdingsData) ? holdingsData : null)
+      
+      if (holdingsArray && Array.isArray(holdingsArray)) {
+        result.holdings = holdingsArray.slice(0, 10).map((item: any) => ({
+          name: item.SNAME || item.name || item.股票名称 || item.holdingName || '',
+          code: item.SCODE || item.code || item.股票代码 || item.holdingCode || '',
+          percent: parseFloat(item.JZBL || item.ratio || item.持仓比例 || item.占净值比例 || item.holdingPercent || '0'),
+        })).filter((item: any) => item.name && item.code)
+      }
+    } catch {
+      // 持仓请求失败，忽略错误
+    }
+    
+    return result
+  } catch (e) {
+    console.error('fetchFundDetail error:', e)
+    return null
+  }
+}
+
 /* ── Fund Ranking ───────────────────────────── */
 
-/** Load fund ranking data directly from Eastmoney rankhandler API.
- *  The API returns `var rankData = {datas:[...]}` — we load it as a script and read the global. */
 export async function fetchFundRanking(): Promise<FundRankingData[]> {
-  const today = new Date()
-  const oneYearAgo = new Date(today)
-  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
-  const sd = oneYearAgo.toISOString().split('T')[0]
-  const ed = today.toISOString().split('T')[0]
+  // sc=rzdf: 按日涨幅排序; 不带日期范围则自动取最近交易日
+  const url = `https://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=all&rs=&gs=0&sc=rzdf&st=desc&qdii=&tabSubtype=,,,,,&pi=1&pn=20&dx=1&v=${Date.now()}`
 
-  const src = `https://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=all&rs=&gs=0&sc=zzf&st=desc&sd=${sd}&ed=${ed}&qdii=&tabSubtype=,,,,,&pi=1&pn=20&dx=1&v=${Date.now()}`
+  let itemStrings: string[] = []
 
-  ;(window as any).rankData = undefined
-  const raw = await loadScriptVar<{ datas: string[] }>(src, 'rankData', 10000)
+  // Use fetch + regex parse (script tag can't set Referer header which API requires)
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        'Referer': 'https://fund.eastmoney.com/data/fundranking.html',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    })
+    const text = await resp.text()
+    // Parse: var rankData = {datas:["item1,item2,...", "item2,item2,..."], ...}
+    // Each item is a quoted string: "code,name,..." — extract with "([^"]*)" regex
+    const itemMatches = text.matchAll(/"([^"]*)"/g)
+    for (const m of itemMatches) {
+      const val = m[1]
+      // Items start with a 6-digit fund code followed by comma
+      if (/^\d{6},/.test(val)) {
+        itemStrings.push(val)
+      }
+      // Stop after we collect the items (there are other quoted fields after datas[])
+      if (itemStrings.length > 0 && !val.includes(',')) {
+        // Hit a non-comma field, stop
+        break
+      }
+    }
+  } catch (e) {
+    console.error('fetchFundRanking fetch failed:', e)
+  }
 
-  if (!raw?.datas?.length) return []
+  // Fallback: try script tag
+  if (!itemStrings.length) {
+    ;(window as any).rankData = undefined
+    const fallback = await loadScriptVar<{ datas: string[] }>(url, 'rankData', 8000)
+    if (fallback?.datas?.length) {
+      itemStrings = fallback.datas
+    }
+  }
 
-  const funds = raw.datas
+  if (!itemStrings.length) return []
+
+  const funds = itemStrings
     .map((item: string) => {
       const p = item.split(',')
       const name = p[1] || ''
@@ -569,6 +656,10 @@ export async function fetchFundRanking(): Promise<FundRankingData[]> {
         dayChange: parseFloat(p[6]) || 0,
         weekChange: parseFloat(p[7]) || 0,
         monthChange: parseFloat(p[8]) || 0,
+        threeMonth: parseFloat(p[9]) || 0,
+        sixMonth: parseFloat(p[10]) || 0,
+        oneYear: parseFloat(p[11]) || 0,
+        twoYear: parseFloat(p[12]) || 0,
       }
     })
     .filter((f: FundRankingData) => f.code && f.nav > 0)

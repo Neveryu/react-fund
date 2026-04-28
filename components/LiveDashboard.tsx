@@ -9,12 +9,11 @@ import FundRankingTable from '@/components/FundRankingTable'
 import SearchModal from '@/components/SearchModal'
 import ScrollToTop from '@/components/ScrollToTop'
 import IndexChartModal from '@/components/IndexChartModal'
+import FundDetailModal from '@/components/FundDetailModal'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-  globalIndices as mockIndices,
   hotStocks as mockStocks,
   funds as mockFunds,
-  fundRanking as mockFundRanking,
 } from '@/lib/data'
 import type { IndexData, StockData, FundData, FundRankingData } from '@/lib/data'
 import {
@@ -32,12 +31,13 @@ import {
   fetchFundsByCodes,
   fetchStocksByCodes,
   fetchFundRanking,
+  fetchFundDetail,
 } from '@/lib/client-api'
 import { useWatchlist } from '@/lib/watchlist'
 import { cn } from '@/lib/utils'
 
 export default function LiveDashboard() {
-  const { fundList, stockCodes, addFund, removeFund, addStock, removeStock, mounted } =
+  const { fundList, stockList, addFund, removeFund, addStock, removeStock, mounted } =
     useWatchlist()
 
   const [indices, setIndices] = useState<IndexData[]>([])
@@ -52,6 +52,23 @@ export default function LiveDashboard() {
   const [stockTab, setStockTab] = useState<'hot' | 'watchlist'>('hot')
   const [searchType, setSearchType] = useState<'fund' | 'stock' | null>(null)
   const [selectedIndex, setSelectedIndex] = useState<IndexData | null>(null)
+  const [selectedFund, setSelectedFund] = useState<FundRankingData | null>(null)
+  const [isLoadingFundDetail, setIsLoadingFundDetail] = useState(false)
+
+  const handleSelectFund = async (fund: FundRankingData) => {
+    setSelectedFund(fund)
+    setIsLoadingFundDetail(true)
+    try {
+      const detail = await fetchFundDetail(fund.code)
+      if (detail) {
+        setSelectedFund((prev) => prev ? { ...prev, ...detail } : prev)
+      }
+    } catch (e) {
+      console.error('Failed to fetch fund detail:', e)
+    } finally {
+      setIsLoadingFundDetail(false)
+    }
+  }
 
   const fetchAllData = useCallback(async () => {
     setIsRefreshing(true)
@@ -60,8 +77,8 @@ export default function LiveDashboard() {
         await Promise.allSettled([
           fetchIndices(),
           fetchHotStocks(),
-          stockCodes.length > 0
-            ? fetchStocksByCodes(stockCodes)
+          stockList.length > 0
+            ? fetchStocksByCodes(stockList.map((s) => s.code))
             : Promise.resolve([] as StockData[]),
           fundList.length > 0
             ? fetchFundsByCodes(fundList)
@@ -92,7 +109,7 @@ export default function LiveDashboard() {
     } finally {
       setIsRefreshing(false)
     }
-  }, [fundList, stockCodes])
+  }, [fundList, stockList])
 
   useEffect(() => {
     if (!mounted) return
@@ -148,7 +165,7 @@ export default function LiveDashboard() {
             icon={<BarChart3 className="h-5 w-5 text-accent" />}
             label="股票行情"
             value={`${hotStocks.length} 只`}
-            sub={stockCodes.length > 0 ? `自选 ${stockCodes.length} 只` : 'A股热门'}
+            sub={stockList.length > 0 ? `自选 ${stockList.length} 只` : 'A股热门'}
             href="#stocks"
           />
           <StatCard
@@ -164,9 +181,15 @@ export default function LiveDashboard() {
         <section id="indices">
           <SectionHeader title="全球指数" subtitle="主要市场实时行情" />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mt-4">
-            {indices.map((index) => (
-              <IndexCard key={index.code} data={index} onClick={setSelectedIndex} />
-            ))}
+            {indices.length > 0 ? (
+              indices.map((index) => (
+                <IndexCard key={index.code} data={index} onClick={setSelectedIndex} />
+              ))
+            ) : (
+              <div className="col-span-full py-12 text-center text-muted-foreground text-sm">
+                暂无全球指数数据，请检查网络连接
+              </div>
+            )}
           </div>
         </section>
 
@@ -207,7 +230,10 @@ export default function LiveDashboard() {
         <section id="fund-ranking">
           <SectionHeader title="当日基金涨跌幅排行榜" subtitle="全市场基金实时排行" />
           <div className="mt-4">
-            <FundRankingTable data={fundRanking} />
+            <FundRankingTable
+              data={fundRanking}
+              onSelectFund={handleSelectFund}
+            />
           </div>
         </section>
 
@@ -241,9 +267,9 @@ export default function LiveDashboard() {
                   )}
                 >
                   我的自选
-                  {stockCodes.length > 0 && (
+                  {stockList.length > 0 && (
                     <span className="ml-1 text-[10px] opacity-70">
-                      ({stockCodes.length})
+                      ({stockList.length})
                     </span>
                   )}
                 </button>
@@ -283,11 +309,11 @@ export default function LiveDashboard() {
         onClose={() => setSearchType(null)}
         type={searchType || 'fund'}
         existingCodes={
-          searchType === 'fund' ? fundList.map((f) => f.code) : stockCodes
+          searchType === 'fund' ? fundList.map((f) => f.code) : stockList.map((s) => s.code)
         }
         onAdd={(code, meta, manager) => {
           if (searchType === 'fund') addFund(code, meta || '基金', manager)
-          else addStock(code)
+          else addStock(code, meta)
         }}
         onRemove={(code) => {
           if (searchType === 'fund') removeFund(code)
@@ -295,6 +321,11 @@ export default function LiveDashboard() {
         }}
       />
       <IndexChartModal index={selectedIndex} onClose={() => setSelectedIndex(null)} />
+      <FundDetailModal
+              fund={selectedFund}
+              onClose={() => setSelectedFund(null)}
+              isLoading={isLoadingFundDetail}
+            />
       <ScrollToTop />
     </>
   )
