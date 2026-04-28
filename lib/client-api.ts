@@ -425,9 +425,7 @@ export async function fetchStocksByCodes(codes: string[]): Promise<StockData[]> 
   try {
     const secids = codes.join(',')
     const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${secids}&fields=f2,f3,f4,f5,f6,f12,f14,f15,f16&_=${Date.now()}`
-    console.log('[fetchStocksByCodes] codes:', codes, '→ secids:', secids)
     const data = await jsonp<any>(url, 'cb')
-    console.log('[fetchStocksByCodes] rc:', data?.rc, 'diff count:', data?.data?.diff?.length)
     if (data.rc !== 0 || !data.data?.diff) return []
     return data.data.diff
       .filter((item: any) => typeof item.f2 === 'number')

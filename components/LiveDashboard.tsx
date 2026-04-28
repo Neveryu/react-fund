@@ -228,7 +228,7 @@ export default function LiveDashboard() {
 
         {/* Fund Ranking */}
         <section id="fund-ranking">
-          <SectionHeader title="当日基金涨跌幅排行榜" subtitle="全市场基金实时排行" />
+          <SectionHeader title="基金涨跌幅排行榜" subtitle="全市场基金最新排行" />
           <div className="mt-4">
             <FundRankingTable
               data={fundRanking}
