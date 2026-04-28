@@ -8,6 +8,7 @@ import ThemeToggle from './ThemeToggle'
 const navItems = [
   { label: '首页', href: '#', active: true },
   { label: '全球指数', href: '#indices' },
+  { label: '每日播报', href: '#daily' },
   { label: '热门股票', href: '#stocks' },
   { label: '基金跟踪', href: '#funds' },
   { label: '基金排行', href: '#fund-ranking' },

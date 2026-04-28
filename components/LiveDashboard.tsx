@@ -6,6 +6,7 @@ import IndexCard from '@/components/IndexCard'
 import StockTable from '@/components/StockTable'
 import FundCard from '@/components/FundCard'
 import FundRankingTable from '@/components/FundRankingTable'
+import DailyMarketAnalysis from '@/components/DailyMarketAnalysis'
 import SearchModal from '@/components/SearchModal'
 import ScrollToTop from '@/components/ScrollToTop'
 import IndexChartModal from '@/components/IndexChartModal'
@@ -15,7 +16,7 @@ import {
   hotStocks as mockStocks,
   funds as mockFunds,
 } from '@/lib/data'
-import type { IndexData, StockData, FundData, FundRankingData } from '@/lib/data'
+import type { IndexData, StockData, FundData, FundRankingData, DailyAnalysisData } from '@/lib/data'
 import {
   TrendingUp,
   BarChart3,
@@ -32,6 +33,7 @@ import {
   fetchStocksByCodes,
   fetchFundRanking,
   fetchFundDetail,
+  fetchDailyAnalysis,
 } from '@/lib/client-api'
 import { useWatchlist } from '@/lib/watchlist'
 import { cn } from '@/lib/utils'
@@ -45,6 +47,12 @@ export default function LiveDashboard() {
   const [watchlistStocks, setWatchlistStocks] = useState<StockData[]>([])
   const [funds, setFunds] = useState<FundData[]>(mockFunds)
   const [fundRanking, setFundRanking] = useState<FundRankingData[]>([])
+  const [dailyAnalysis, setDailyAnalysis] = useState<DailyAnalysisData>({
+    marketStats: null,
+    industrySectors: [],
+    conceptSectors: [],
+    capitalFlow: [],
+  })
   const [lastUpdate, setLastUpdate] = useState<string>('')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isLive, setIsLive] = useState(false)
@@ -73,7 +81,7 @@ export default function LiveDashboard() {
   const fetchAllData = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const [indicesRes, hotStocksRes, watchlistStocksRes, fundsRes, rankingRes] =
+      const [indicesRes, hotStocksRes, watchlistStocksRes, fundsRes, rankingRes, dailyRes] =
         await Promise.allSettled([
           fetchIndices(),
           fetchHotStocks(),
@@ -84,6 +92,7 @@ export default function LiveDashboard() {
             ? fetchFundsByCodes(fundList)
             : Promise.resolve([] as FundData[]),
           fetchFundRanking(),
+          fetchDailyAnalysis(),
         ])
 
       if (indicesRes.status === 'fulfilled' && indicesRes.value?.length) {
@@ -101,6 +110,9 @@ export default function LiveDashboard() {
       }
       if (rankingRes.status === 'fulfilled' && rankingRes.value?.length) {
         setFundRanking(rankingRes.value)
+      }
+      if (dailyRes.status === 'fulfilled') {
+        setDailyAnalysis(dailyRes.value)
       }
 
       setLastUpdate(new Date().toLocaleTimeString('zh-CN'))
@@ -153,13 +165,28 @@ export default function LiveDashboard() {
         </div>
 
         {/* Summary Stats */}
-        <section className="grid grid-cols-3 gap-3">
+        <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
             icon={<TrendingUp className="h-5 w-5 text-primary" />}
             label="全球指数"
             value={`${indices.length} 个`}
             sub={`${upCount} 涨 · ${downCount} 跌`}
             href="#indices"
+          />
+          <StatCard
+            icon={<BarChart2 className="h-5 w-5 text-accent" />}
+            label="每日播报"
+            value={
+              dailyAnalysis.marketStats
+                ? `${dailyAnalysis.marketStats.advancers}↑ ${dailyAnalysis.marketStats.decliners}↓`
+                : '加载中'
+            }
+            sub={
+              dailyAnalysis.marketStats
+                ? `成交 ${dailyAnalysis.marketStats.totalTurnover >= 1e12 ? (dailyAnalysis.marketStats.totalTurnover / 1e12).toFixed(2) + '万亿' : (dailyAnalysis.marketStats.totalTurnover / 1e8).toFixed(0) + '亿'}`
+                : '大盘概况'
+            }
+            href="#daily"
           />
           <StatCard
             icon={<BarChart3 className="h-5 w-5 text-accent" />}
@@ -190,6 +217,14 @@ export default function LiveDashboard() {
                 暂无全球指数数据，请检查网络连接
               </div>
             )}
+          </div>
+        </section>
+
+        {/* Daily Market Analysis */}
+        <section id="daily">
+          <SectionHeader title="每日股市分析" subtitle="大盘概况 · 板块热度 · 资金流向" />
+          <div className="mt-4">
+            <DailyMarketAnalysis data={dailyAnalysis} />
           </div>
         </section>
 

@@ -1,3 +1,41 @@
+export interface MarketStatsData {
+  advancers: number
+  decliners: number
+  unchanged: number
+  limitUp: number
+  limitDown: number
+  totalTurnover: number
+}
+
+export interface SectorData {
+  name: string
+  code: string
+  changePercent: number
+  change: number
+  price: number
+  advancers: number
+  decliners: number
+  leadStock: string
+  leadStockCode: string
+}
+
+export interface SectorCapitalFlowData {
+  name: string
+  code: string
+  changePercent: number
+  mainNetInflow: number
+  mainNetRatio: number
+  superLargeNet: number
+  largeNet: number
+}
+
+export interface DailyAnalysisData {
+  marketStats: MarketStatsData | null
+  industrySectors: SectorData[]
+  conceptSectors: SectorData[]
+  capitalFlow: SectorCapitalFlowData[]
+}
+
 export interface IndexData {
   name: string
   code: string

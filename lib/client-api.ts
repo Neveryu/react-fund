@@ -1,4 +1,4 @@
-import type { IndexData, StockData, FundData, FundRankingData } from './data'
+import type { IndexData, StockData, FundData, FundRankingData, MarketStatsData, SectorData, SectorCapitalFlowData, DailyAnalysisData } from './data'
 
 /* ── JSONP Utility ─────────────────────────────── */
 
@@ -633,4 +633,132 @@ export async function fetchFundRanking(): Promise<FundRankingData[]> {
 
   ;(window as any).rankData = undefined
   return funds
+}
+
+/* ── Daily Market Analysis ─────────────────── */
+
+export async function fetchMarketStats(): Promise<MarketStatsData | null> {
+  try {
+    const [statsRes, turnoverRes, limitUpRes, limitDownRes] = await Promise.allSettled([
+      jsonp<any>(
+        `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=1.000001&fields=f104,f105,f106&_=${Date.now()}`,
+        'cb'
+      ),
+      jsonp<any>(
+        `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=1.000001,0.399001&fields=f6&_=${Date.now()}`,
+        'cb'
+      ),
+      jsonp<any>(
+        `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=5000&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f3&_=${Date.now()}`,
+        'cb'
+      ),
+      jsonp<any>(
+        `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=5000&po=0&np=1&fltt=2&invt=2&fid=f3&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f3&_=${Date.now()}`,
+        'cb'
+      ),
+    ])
+
+    let advancers = 0, decliners = 0, unchanged = 0
+    if (statsRes.status === 'fulfilled' && statsRes.value?.data?.diff?.[0]) {
+      const d = statsRes.value.data.diff[0]
+      advancers = typeof d.f104 === 'number' ? d.f104 : 0
+      decliners = typeof d.f105 === 'number' ? d.f105 : 0
+      unchanged = typeof d.f106 === 'number' ? d.f106 : 0
+    }
+
+    let totalTurnover = 0
+    if (turnoverRes.status === 'fulfilled' && turnoverRes.value?.data?.diff) {
+      for (const item of turnoverRes.value.data.diff) {
+        if (typeof item.f6 === 'number') totalTurnover += item.f6
+      }
+    }
+
+    let limitUp = 0
+    if (limitUpRes.status === 'fulfilled' && limitUpRes.value?.data?.diff) {
+      limitUp = limitUpRes.value.data.diff.filter(
+        (item: any) => typeof item.f3 === 'number' && item.f3 >= 9.9
+      ).length
+    }
+
+    let limitDown = 0
+    if (limitDownRes.status === 'fulfilled' && limitDownRes.value?.data?.diff) {
+      limitDown = limitDownRes.value.data.diff.filter(
+        (item: any) => typeof item.f3 === 'number' && item.f3 <= -9.9
+      ).length
+    }
+
+    return { advancers, decliners, unchanged, limitUp, limitDown, totalTurnover }
+  } catch (err) {
+    console.error('[fetchMarketStats] error:', err)
+    return null
+  }
+}
+
+export async function fetchSectorRanking(
+  type: 'industry' | 'concept'
+): Promise<SectorData[]> {
+  try {
+    const fs = type === 'industry' ? 'm:90+t:2' : 'm:90+t:3'
+    const url = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=10&po=1&np=1&fltt=2&invt=2&fid=f3&fs=${fs}&fields=f2,f3,f4,f12,f14,f104,f105,f128,f140&_=${Date.now()}`
+    const data = await jsonp<any>(url, 'cb')
+
+    if (data.rc !== 0 || !data.data?.diff) return []
+
+    return data.data.diff
+      .filter((item: any) => typeof item.f3 === 'number')
+      .map((item: any) => ({
+        name: item.f14 || '',
+        code: String(item.f12 || ''),
+        changePercent: item.f3,
+        change: typeof item.f4 === 'number' ? item.f4 : 0,
+        price: typeof item.f2 === 'number' ? item.f2 : 0,
+        advancers: typeof item.f104 === 'number' ? item.f104 : 0,
+        decliners: typeof item.f105 === 'number' ? item.f105 : 0,
+        leadStock: item.f128 || '--',
+        leadStockCode: item.f140 || '',
+      }))
+  } catch (err) {
+    console.error(`[fetchSectorRanking] ${type} error:`, err)
+    return []
+  }
+}
+
+export async function fetchSectorCapitalFlow(): Promise<SectorCapitalFlowData[]> {
+  try {
+    const url = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=10&po=1&np=1&fltt=2&invt=2&fid=f62&fs=m:90+t:2&fields=f12,f14,f2,f3,f62,f184,f66,f72&_=${Date.now()}`
+    const data = await jsonp<any>(url, 'cb')
+
+    if (data.rc !== 0 || !data.data?.diff) return []
+
+    return data.data.diff
+      .filter((item: any) => typeof item.f62 === 'number')
+      .map((item: any) => ({
+        name: item.f14 || '',
+        code: String(item.f12 || ''),
+        changePercent: typeof item.f3 === 'number' ? item.f3 : 0,
+        mainNetInflow: item.f62,
+        mainNetRatio: typeof item.f184 === 'number' ? item.f184 : 0,
+        superLargeNet: typeof item.f66 === 'number' ? item.f66 : 0,
+        largeNet: typeof item.f72 === 'number' ? item.f72 : 0,
+      }))
+  } catch (err) {
+    console.error('[fetchSectorCapitalFlow] error:', err)
+    return []
+  }
+}
+
+export async function fetchDailyAnalysis(): Promise<DailyAnalysisData> {
+  const [statsRes, industryRes, conceptRes, flowRes] = await Promise.allSettled([
+    fetchMarketStats(),
+    fetchSectorRanking('industry'),
+    fetchSectorRanking('concept'),
+    fetchSectorCapitalFlow(),
+  ])
+
+  return {
+    marketStats: statsRes.status === 'fulfilled' ? statsRes.value : null,
+    industrySectors: industryRes.status === 'fulfilled' ? industryRes.value : [],
+    conceptSectors: conceptRes.status === 'fulfilled' ? conceptRes.value : [],
+    capitalFlow: flowRes.status === 'fulfilled' ? flowRes.value : [],
+  }
 }
