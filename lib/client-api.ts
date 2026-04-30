@@ -1,4 +1,4 @@
-import type { IndexData, StockData, FundData, FundRankingData, MarketStatsData, SectorData, SectorCapitalFlowData, DailyAnalysisData } from './data'
+import type { IndexData, StockData, FundData, FundRankingData, MarketStatsData, SectorData, SectorCapitalFlowData, DailyAnalysisData, TurnoverTrendData, TurnoverTrendPoint } from './data'
 
 /* ── JSONP Utility ─────────────────────────────── */
 
@@ -747,12 +747,178 @@ export async function fetchSectorCapitalFlow(): Promise<SectorCapitalFlowData[]>
   }
 }
 
+/* ── Turnover Trend (分时累计成交额) ─────────────────── */
+
+/**
+ * 解析东方财富 trends2 分时数据
+ * 数据格式："YYYY-MM-DD HH:mm,价格,均价,成交量,成交额,..."
+ * 返回按日期分组的分钟级成交额数据
+ */
+function parseTrends2(trends: string[]): Map<string, { time: string; turnover: number }[]> {
+  const grouped = new Map<string, { time: string; turnover: number }[]>()
+  for (const item of trends) {
+    const parts = item.split(',')
+    if (parts.length < 7) continue
+    const dateTime = parts[0]
+    const [date, time] = dateTime.split(' ')
+    if (!date || !time) continue
+    // 数据格式: 日期,成交量?,价格,当前价,均价,成交量,成交额,均价
+    // 索引6 = f6 = 成交额（元）
+    const turnover = parseFloat(parts[6]) || 0
+    const hm = time.slice(0, 5)
+    if (!grouped.has(date)) grouped.set(date, [])
+    grouped.get(date)!.push({ time: hm, turnover })
+  }
+  return grouped
+}
+
+/**
+ * 将单分钟成交额累加为累计成交额
+ */
+function accumulateTurnover(points: { time: string; turnover: number }[]): TurnoverTrendPoint[] {
+  let sum = 0
+  return points.map((p) => {
+    sum += p.turnover
+    return { time: p.time, turnover: sum }
+  })
+}
+
+/**
+ * 合并两市分时数据（同时间点成交额相加）
+ */
+function mergeTwoMarkets(
+  sh: { time: string; turnover: number }[],
+  sz: { time: string; turnover: number }[]
+): { time: string; turnover: number }[] {
+  const map = new Map<string, number>()
+  for (const p of sh) map.set(p.time, (map.get(p.time) || 0) + p.turnover)
+  for (const p of sz) map.set(p.time, (map.get(p.time) || 0) + p.turnover)
+  const times = Array.from(map.keys()).sort()
+  return times.map((t) => ({ time: t, turnover: map.get(t) || 0 }))
+}
+
+export async function fetchTurnoverTrend(): Promise<TurnoverTrendData | null> {
+  try {
+    const fields1 = 'f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13'
+    const fields2 = 'f51,f52,f53,f54,f55,f56,f57,f58'
+
+    const [shRes, szRes, shQuoteRes, szQuoteRes] = await Promise.allSettled([
+      jsonp<any>(
+        `https://push2his.eastmoney.com/api/qt/stock/trends2/get?fields1=${fields1}&fields2=${fields2}&ut=fa5fd1943c7b386f172d6893dbfba10b&ndays=2&iscr=0&iscca=0&secid=1.000001&_=${Date.now()}`,
+        'cb'
+      ),
+      jsonp<any>(
+        `https://push2his.eastmoney.com/api/qt/stock/trends2/get?fields1=${fields1}&fields2=${fields2}&ut=fa5fd1943c7b386f172d6893dbfba10b&ndays=2&iscr=0&iscca=0&secid=0.399001&_=${Date.now()}`,
+        'cb'
+      ),
+      jsonp<any>(
+        `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=1.000001&fields=f3&_=${Date.now()}`,
+        'cb'
+      ),
+      jsonp<any>(
+        `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=0.399001&fields=f3&_=${Date.now()}`,
+        'cb'
+      ),
+    ])
+
+    const shTrends: string[] = shRes.status === 'fulfilled' ? (shRes.value?.data?.trends || []) : []
+    const szTrends: string[] = szRes.status === 'fulfilled' ? (szRes.value?.data?.trends || []) : []
+
+    if (shTrends.length === 0 && szTrends.length === 0) {
+      return null
+    }
+
+    const shGrouped = parseTrends2(shTrends)
+    const szGrouped = parseTrends2(szTrends)
+
+    // 按日期排序：最新的是今日，之前的是昨日
+    const allDates = Array.from(new Set([...shGrouped.keys(), ...szGrouped.keys()])).sort()
+    if (allDates.length === 0) return null
+
+    const todayDate = allDates[allDates.length - 1]
+    const prevDate = allDates.length > 1 ? allDates[allDates.length - 2] : ''
+
+    const todaySh = shGrouped.get(todayDate) || []
+    const todaySz = szGrouped.get(todayDate) || []
+    const prevSh = prevDate ? (shGrouped.get(prevDate) || []) : []
+    const prevSz = prevDate ? (szGrouped.get(prevDate) || []) : []
+
+    // 合并两市分钟成交额
+    const todayMerged = mergeTwoMarkets(todaySh, todaySz)
+    const prevMerged = mergeTwoMarkets(prevSh, prevSz)
+
+    // 累加成累计成交额
+    const today = accumulateTurnover(todayMerged)
+    const prev = accumulateTurnover(prevMerged)
+
+    const currentPoint = today[today.length - 1]
+    const currentTime = currentPoint?.time || ''
+    const currentTurnover = currentPoint?.turnover || 0
+
+    // 昨日同时点成交额
+    let prevSameTimeTurnover = 0
+    if (currentTime && prev.length > 0) {
+      // 查找小于等于 currentTime 的最后一个点
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i].time <= currentTime) {
+          prevSameTimeTurnover = prev[i].turnover
+          break
+        }
+      }
+      if (prevSameTimeTurnover === 0) prevSameTimeTurnover = prev[0].turnover
+    }
+
+    const prevTotalTurnover = prev.length > 0 ? prev[prev.length - 1].turnover : 0
+    const growthPercent = prevSameTimeTurnover > 0
+      ? ((currentTurnover - prevSameTimeTurnover) / prevSameTimeTurnover) * 100
+      : 0
+
+    // 取指数涨跌幅
+    let shChangePercent = 0
+    let szChangePercent = 0
+    if (shQuoteRes.status === 'fulfilled') {
+      const d = shQuoteRes.value?.data?.diff?.[0]
+      if (d && typeof d.f3 === 'number') shChangePercent = d.f3
+    }
+    if (szQuoteRes.status === 'fulfilled') {
+      const d = szQuoteRes.value?.data?.diff?.[0]
+      if (d && typeof d.f3 === 'number') szChangePercent = d.f3
+    }
+
+    console.log('[fetchTurnoverTrend]', {
+      todayDate, prevDate,
+      todayPoints: today.length,
+      prevPoints: prev.length,
+      currentTime, currentTurnover,
+      prevSameTimeTurnover, prevTotalTurnover,
+      growthPercent: growthPercent.toFixed(2),
+      shChangePercent, szChangePercent,
+    })
+
+    return {
+      today,
+      prev,
+      currentTime,
+      currentTurnover,
+      prevSameTimeTurnover,
+      prevTotalTurnover,
+      growthPercent,
+      shChangePercent,
+      szChangePercent,
+    }
+  } catch (err) {
+    console.error('[fetchTurnoverTrend] error:', err)
+    return null
+  }
+}
+
 export async function fetchDailyAnalysis(): Promise<DailyAnalysisData> {
-  const [statsRes, industryRes, conceptRes, flowRes] = await Promise.allSettled([
+  const [statsRes, industryRes, conceptRes, flowRes, trendRes] = await Promise.allSettled([
     fetchMarketStats(),
     fetchSectorRanking('industry'),
     fetchSectorRanking('concept'),
     fetchSectorCapitalFlow(),
+    fetchTurnoverTrend(),
   ])
 
   return {
@@ -760,5 +926,6 @@ export async function fetchDailyAnalysis(): Promise<DailyAnalysisData> {
     industrySectors: industryRes.status === 'fulfilled' ? industryRes.value : [],
     conceptSectors: conceptRes.status === 'fulfilled' ? conceptRes.value : [],
     capitalFlow: flowRes.status === 'fulfilled' ? flowRes.value : [],
+    turnoverTrend: trendRes.status === 'fulfilled' ? trendRes.value : null,
   }
 }

@@ -29,11 +29,29 @@ export interface SectorCapitalFlowData {
   largeNet: number
 }
 
+export interface TurnoverTrendPoint {
+  time: string      // HH:mm
+  turnover: number  // 两市累计成交额（元）
+}
+
+export interface TurnoverTrendData {
+  today: TurnoverTrendPoint[]       // 今日分时累计成交额
+  prev: TurnoverTrendPoint[]        // 上一交易日分时累计成交额
+  currentTime: string               // 今日最新时间点 HH:mm
+  currentTurnover: number           // 今日最新累计成交额
+  prevSameTimeTurnover: number      // 昨日同时点累计成交额
+  prevTotalTurnover: number         // 昨日全天成交额
+  growthPercent: number             // 相对昨日同时点增长率 %
+  shChangePercent: number           // 上证指数今日涨跌幅
+  szChangePercent: number           // 深证成指今日涨跌幅
+}
+
 export interface DailyAnalysisData {
   marketStats: MarketStatsData | null
   industrySectors: SectorData[]
   conceptSectors: SectorData[]
   capitalFlow: SectorCapitalFlowData[]
+  turnoverTrend: TurnoverTrendData | null
 }
 
 export interface IndexData {

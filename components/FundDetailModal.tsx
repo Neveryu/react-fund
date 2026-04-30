@@ -2,21 +2,67 @@
 
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { FundRankingData } from '@/lib/data'
+import type { FundRankingData, FundData } from '@/lib/data'
+
+// 通用的基金详情信息（适配 FundRankingData 和 FundData）
+interface FundDetailInfo {
+  name: string
+  code: string
+  type: string
+  nav: number
+  navDate: string
+  dayChange: number
+  manager?: string
+  scale?: string
+  // 收益
+  weekChange: number
+  monthChange: number
+  threeMonth: number
+  sixMonth: number
+  oneYear: number
+  twoYear: number
+  holdings?: { name: string; code: string; percent: number }[]
+}
 
 interface FundDetailModalProps {
-  fund: FundRankingData | null
+  fund: FundRankingData | FundData | null
   onClose: () => void
   isLoading?: boolean
+}
+
+function adaptFundData(data: FundRankingData | FundData): FundDetailInfo {
+  if ('weekChange' in data) {
+    // FundRankingData
+    return data as FundDetailInfo
+  }
+  // FundData
+  return {
+    name: data.name,
+    code: data.code,
+    type: data.type,
+    nav: data.nav,
+    navDate: data.navDate,
+    dayChange: data.dayChange,
+    manager: data.manager,
+    scale: data.scale,
+    weekChange: data.returns?.oneWeek ?? 0,
+    monthChange: data.returns?.oneMonth ?? 0,
+    threeMonth: data.returns?.threeMonth ?? 0,
+    sixMonth: data.returns?.sixMonth ?? 0,
+    oneYear: data.returns?.oneYear ?? 0,
+    twoYear: 0,
+    holdings: undefined,
+  }
 }
 
 export default function FundDetailModal({ fund, onClose, isLoading }: FundDetailModalProps) {
   if (!fund) return null
 
+  const info = adaptFundData(fund)
   const isPositive = (value: number) => value >= 0
 
   // 检查是否有详细信息
-  const hasDetail = fund.manager || fund.scale || (fund.holdings && fund.holdings.length > 0)
+  const hasDetail = info.manager || info.scale || (info.holdings && info.holdings.length > 0)
 
   const formatChange = (value: number) => {
     const sign = value >= 0 ? '+' : ''
@@ -39,8 +85,8 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
         {/* Header */}
         <div className="flex items-start justify-between p-5 border-b border-border">
           <div>
-            <h2 className="text-xl font-bold">{fund.name}</h2>
-            <p className="text-sm text-muted-foreground mt-1">{fund.code} · {fund.type}</p>
+            <h2 className="text-xl font-bold">{info.name}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{info.code} · {info.type}</p>
           </div>
           <button
             onClick={onClose}
@@ -57,10 +103,10 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
               <div className="text-muted-foreground">正在加载基金详情...</div>
             ) : (
               <>
-                {fund.manager ? (
+                {info.manager ? (
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">基金经理:</span>
-                    <span className="font-medium">{fund.manager}</span>
+                    <span className="font-medium">{info.manager}</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
@@ -68,10 +114,10 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
                     <span className="text-muted-foreground">暂无</span>
                   </div>
                 )}
-                {fund.scale ? (
+                {info.scale ? (
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">基金规模:</span>
-                    <span className="font-medium">{fund.scale}</span>
+                    <span className="font-medium">{info.scale}</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
@@ -90,17 +136,17 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
           <div className="flex items-end gap-6">
             <div>
               <p className="text-sm text-muted-foreground">单位净值</p>
-              <p className="text-3xl font-bold tabular-nums">{fund.nav.toFixed(4)}</p>
-              <p className="text-xs text-muted-foreground mt-1">日期: {fund.navDate}</p>
+              <p className="text-3xl font-bold tabular-nums">{info.nav.toFixed(4)}</p>
+              <p className="text-xs text-muted-foreground mt-1">日期: {info.navDate}</p>
             </div>
             <div className="pb-1">
               <span
                 className={cn(
                   'text-2xl font-bold tabular-nums',
-                  isPositive(fund.dayChange) ? 'text-success' : 'text-destructive'
+                  isPositive(info.dayChange) ? 'text-success' : 'text-destructive'
                 )}
               >
-                {formatChange(fund.dayChange)}
+                {formatChange(info.dayChange)}
               </span>
               <p className="text-sm text-muted-foreground">日涨跌幅</p>
             </div>
@@ -115,10 +161,10 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
                 <p
                   className={cn(
                     'font-semibold tabular-nums',
-                    isPositive(fund.weekChange) ? 'text-success' : 'text-destructive'
+                    isPositive(info.weekChange) ? 'text-success' : 'text-destructive'
                   )}
                 >
-                  {formatChange(fund.weekChange)}
+                  {formatChange(info.weekChange)}
                 </p>
               </div>
               <div className="bg-secondary/30 rounded-lg p-3 text-center">
@@ -126,10 +172,10 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
                 <p
                   className={cn(
                     'font-semibold tabular-nums',
-                    isPositive(fund.monthChange) ? 'text-success' : 'text-destructive'
+                    isPositive(info.monthChange) ? 'text-success' : 'text-destructive'
                   )}
                 >
-                  {formatChange(fund.monthChange)}
+                  {formatChange(info.monthChange)}
                 </p>
               </div>
               <div className="bg-secondary/30 rounded-lg p-3 text-center">
@@ -137,10 +183,10 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
                 <p
                   className={cn(
                     'font-semibold tabular-nums',
-                    isPositive(fund.threeMonth) ? 'text-success' : 'text-destructive'
+                    isPositive(info.threeMonth) ? 'text-success' : 'text-destructive'
                   )}
                 >
-                  {formatChange(fund.threeMonth)}
+                  {formatChange(info.threeMonth)}
                 </p>
               </div>
               <div className="bg-secondary/30 rounded-lg p-3 text-center">
@@ -148,10 +194,10 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
                 <p
                   className={cn(
                     'font-semibold tabular-nums',
-                    isPositive(fund.sixMonth) ? 'text-success' : 'text-destructive'
+                    isPositive(info.sixMonth) ? 'text-success' : 'text-destructive'
                   )}
                 >
-                  {formatChange(fund.sixMonth)}
+                  {formatChange(info.sixMonth)}
                 </p>
               </div>
               <div className="bg-secondary/30 rounded-lg p-3 text-center">
@@ -159,10 +205,10 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
                 <p
                   className={cn(
                     'font-semibold tabular-nums',
-                    isPositive(fund.oneYear) ? 'text-success' : 'text-destructive'
+                    isPositive(info.oneYear) ? 'text-success' : 'text-destructive'
                   )}
                 >
-                  {formatChange(fund.oneYear)}
+                  {formatChange(info.oneYear)}
                 </p>
               </div>
               <div className="bg-secondary/30 rounded-lg p-3 text-center">
@@ -170,10 +216,10 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
                 <p
                   className={cn(
                     'font-semibold tabular-nums',
-                    isPositive(fund.twoYear) ? 'text-success' : 'text-destructive'
+                    isPositive(info.twoYear) ? 'text-success' : 'text-destructive'
                   )}
                 >
-                  {formatChange(fund.twoYear)}
+                  {formatChange(info.twoYear)}
                 </p>
               </div>
             </div>
@@ -182,7 +228,7 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
           {/* 持仓情况 */}
           <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-3">前十大持仓</h3>
-            {isLoading && !fund.holdings ? (
+            {isLoading && !info.holdings ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="flex items-center justify-between py-2 px-3 bg-secondary/30 rounded-lg animate-pulse">
@@ -200,9 +246,9 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
                   </div>
                 ))}
               </div>
-            ) : fund.holdings && fund.holdings.length > 0 ? (
+            ) : info.holdings && info.holdings.length > 0 ? (
               <div className="space-y-2">
-                {fund.holdings.slice(0, 5).map((holding, index) => (
+                {info.holdings.slice(0, 5).map((holding, index) => (
                   <div
                     key={holding.code}
                     className="flex items-center justify-between py-2 px-3 bg-secondary/30 rounded-lg"

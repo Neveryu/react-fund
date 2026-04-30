@@ -43,7 +43,7 @@ export default function LiveDashboard() {
     useWatchlist()
 
   const [indices, setIndices] = useState<IndexData[]>([])
-  const [hotStocks, setHotStocks] = useState<StockData[]>(mockStocks)
+  const [hotStocks, setHotStocks] = useState<StockData[]>([])
   const [watchlistStocks, setWatchlistStocks] = useState<StockData[]>([])
   const [funds, setFunds] = useState<FundData[]>(mockFunds)
   const [fundRanking, setFundRanking] = useState<FundRankingData[]>([])
@@ -60,10 +60,10 @@ export default function LiveDashboard() {
   const [stockTab, setStockTab] = useState<'hot' | 'watchlist'>('hot')
   const [searchType, setSearchType] = useState<'fund' | 'stock' | null>(null)
   const [selectedIndex, setSelectedIndex] = useState<IndexData | null>(null)
-  const [selectedFund, setSelectedFund] = useState<FundRankingData | null>(null)
+  const [selectedFund, setSelectedFund] = useState<FundRankingData | FundData | null>(null)
   const [isLoadingFundDetail, setIsLoadingFundDetail] = useState(false)
 
-  const handleSelectFund = async (fund: FundRankingData) => {
+  const handleSelectFund = async (fund: FundRankingData | FundData) => {
     setSelectedFund(fund)
     setIsLoadingFundDetail(true)
     try {
@@ -247,6 +247,10 @@ export default function LiveDashboard() {
                   key={fund.code}
                   data={fund}
                   onRemove={() => removeFund(fund.code)}
+                  onClick={() => {
+                    setSelectedFund(fund)
+                    setIsLoadingFundDetail(true)
+                  }}
                 />
               ))
             ) : (

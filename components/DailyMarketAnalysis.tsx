@@ -6,6 +6,7 @@ import type { DailyAnalysisData } from '@/lib/data'
 import MarketOverview from './MarketOverview'
 import SectorRankingTable from './SectorRankingTable'
 import CapitalFlowTable from './CapitalFlowTable'
+import TurnoverComparison from './TurnoverComparison'
 
 type Tab = 'industry' | 'concept' | 'capital'
 
@@ -21,6 +22,9 @@ export default function DailyMarketAnalysis({ data }: { data: DailyAnalysisData 
   return (
     <div className="space-y-6">
       <MarketOverview data={data.marketStats} />
+
+      {/* 两市成交额对比 */}
+      <TurnoverComparison data={data.turnoverTrend} />
 
       <div className="space-y-4">
         <div className="flex rounded-lg border border-border/50 overflow-hidden text-xs w-fit">

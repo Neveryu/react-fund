@@ -4,13 +4,6 @@ import { TrendingUp, TrendingDown, Minus, ArrowUpRight, ArrowDownRight, BarChart
 import { cn } from '@/lib/utils'
 import type { MarketStatsData } from '@/lib/data'
 
-function formatTurnover(value: number): string {
-  if (value >= 1e12) return (value / 1e12).toFixed(2) + '万亿'
-  if (value >= 1e8) return (value / 1e8).toFixed(0) + '亿'
-  if (value >= 1e4) return (value / 1e4).toFixed(0) + '万'
-  return String(value)
-}
-
 export default function MarketOverview({ data }: { data: MarketStatsData | null }) {
   if (!data) {
     return (
@@ -67,21 +60,11 @@ export default function MarketOverview({ data }: { data: MarketStatsData | null 
       color: 'text-foreground',
       bg: 'bg-secondary',
     },
-    {
-      label: '两市成交额',
-      value: null,
-      renderValue: () => (
-        <span className="text-foreground">{formatTurnover(data.totalTurnover)}</span>
-      ),
-      icon: <BarChart2 className="h-4 w-4" />,
-      color: 'text-foreground',
-      bg: 'bg-primary/10',
-    },
   ]
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {cards.map((card) => (
           <div
             key={card.label}

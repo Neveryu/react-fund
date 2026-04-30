@@ -16,7 +16,7 @@ const periodLabels = {
 
 type Period = keyof typeof periodLabels
 
-export default function FundCard({ data, onRemove }: { data: FundData; onRemove?: () => void }) {
+export default function FundCard({ data, onRemove, onClick }: { data: FundData; onRemove?: () => void; onClick?: () => void }) {
   const [period, setPeriod] = useState<Period>('oneDay')
   const isPositive = data.dayChange >= 0
   const periodReturn = period === 'oneDay'
@@ -43,7 +43,12 @@ export default function FundCard({ data, onRemove }: { data: FundData; onRemove?
       <div className="flex items-center gap-3 min-w-0 flex-1 w-full sm:w-auto">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-sm font-medium truncate">{data.name}</h3>
+            <h3 
+              onClick={onClick}
+              className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors"
+            >
+              {data.name}
+            </h3>
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium shrink-0">
               {data.type}
             </span>
