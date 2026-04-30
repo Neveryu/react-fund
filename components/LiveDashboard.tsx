@@ -52,6 +52,7 @@ export default function LiveDashboard() {
     industrySectors: [],
     conceptSectors: [],
     capitalFlow: [],
+    turnoverTrend: null,
   })
   const [lastUpdate, setLastUpdate] = useState<string>('')
   const [isRefreshing, setIsRefreshing] = useState(false)

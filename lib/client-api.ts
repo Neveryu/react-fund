@@ -885,16 +885,6 @@ export async function fetchTurnoverTrend(): Promise<TurnoverTrendData | null> {
       if (d && typeof d.f3 === 'number') szChangePercent = d.f3
     }
 
-    console.log('[fetchTurnoverTrend]', {
-      todayDate, prevDate,
-      todayPoints: today.length,
-      prevPoints: prev.length,
-      currentTime, currentTurnover,
-      prevSameTimeTurnover, prevTotalTurnover,
-      growthPercent: growthPercent.toFixed(2),
-      shChangePercent, szChangePercent,
-    })
-
     return {
       today,
       prev,
@@ -907,7 +897,6 @@ export async function fetchTurnoverTrend(): Promise<TurnoverTrendData | null> {
       szChangePercent,
     }
   } catch (err) {
-    console.error('[fetchTurnoverTrend] error:', err)
     return null
   }
 }
