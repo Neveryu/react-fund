@@ -11,12 +11,13 @@ import SearchModal from '@/components/SearchModal'
 import ScrollToTop from '@/components/ScrollToTop'
 import IndexChartModal from '@/components/IndexChartModal'
 import FundDetailModal from '@/components/FundDetailModal'
+import AiSettingsModal from '@/components/AiSettingsModal'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   hotStocks as mockStocks,
   funds as mockFunds,
 } from '@/lib/data'
-import type { IndexData, StockData, FundData, FundRankingData, DailyAnalysisData } from '@/lib/data'
+import type { IndexData, StockData, FundData, FundRankingData, DailyAnalysisData, DailyAiAnalysis } from '@/lib/data'
 import {
   TrendingUp,
   BarChart3,
@@ -25,6 +26,7 @@ import {
   Plus,
   Search as SearchIcon,
   BarChart2,
+  Settings,
 } from 'lucide-react'
 import {
   fetchIndices,
@@ -34,6 +36,7 @@ import {
   fetchFundRanking,
   fetchFundDetail,
   fetchDailyAnalysis,
+  generateDailyAiAnalysis,
 } from '@/lib/client-api'
 import { useWatchlist } from '@/lib/watchlist'
 import { cn } from '@/lib/utils'
@@ -54,15 +57,18 @@ export default function LiveDashboard() {
     capitalFlow: [],
     turnoverTrend: null,
   })
+  const [aiAnalysis, setAiAnalysis] = useState<DailyAiAnalysis | null>(null)
   const [lastUpdate, setLastUpdate] = useState<string>('')
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isLive, setIsLive] = useState(false)
+  const [isAiAnalysisLoading, setIsAiAnalysisLoading] = useState(false)
 
   const [stockTab, setStockTab] = useState<'hot' | 'watchlist'>('hot')
   const [searchType, setSearchType] = useState<'fund' | 'stock' | null>(null)
   const [selectedIndex, setSelectedIndex] = useState<IndexData | null>(null)
   const [selectedFund, setSelectedFund] = useState<FundRankingData | FundData | null>(null)
   const [isLoadingFundDetail, setIsLoadingFundDetail] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const handleSelectFund = async (fund: FundRankingData | FundData) => {
     setSelectedFund(fund)
@@ -116,6 +122,20 @@ export default function LiveDashboard() {
         setDailyAnalysis(dailyRes.value)
       }
 
+      if (
+        indicesRes.status === 'fulfilled' &&
+        indicesRes.value?.length &&
+        dailyRes.status === 'fulfilled'
+      ) {
+        setIsAiAnalysisLoading(true)
+        generateDailyAiAnalysis(indicesRes.value, dailyRes.value)
+          .then((result) => setAiAnalysis(result))
+          .finally(() => setIsAiAnalysisLoading(false))
+      } else {
+        setIsAiAnalysisLoading(false)
+        setAiAnalysis(null)
+      }
+
       setLastUpdate(new Date().toLocaleTimeString('zh-CN'))
     } catch (e) {
       console.error('Failed to refresh market data:', e)
@@ -155,14 +175,23 @@ export default function LiveDashboard() {
             )}
             {lastUpdate && <span>· 更新于 {lastUpdate}</span>}
           </div>
-          <button
-            onClick={fetchAllData}
-            disabled={isRefreshing}
-            className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={cn('h-3 w-3', isRefreshing && 'animate-spin')} />
-            刷新
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="h-7 w-7 flex items-center justify-center rounded-md border border-border/50 hover:bg-secondary transition-colors"
+              title="AI 设置"
+            >
+              <Settings className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+            <button
+              onClick={fetchAllData}
+              disabled={isRefreshing}
+              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 px-2 py-1 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={cn('h-3 w-3', isRefreshing && 'animate-spin')} />
+              刷新
+            </button>
+          </div>
         </div>
 
         {/* Summary Stats */}
@@ -225,7 +254,12 @@ export default function LiveDashboard() {
         <section id="daily">
           <SectionHeader title="每日股市分析" subtitle="大盘概况 · 板块热度 · 资金流向" />
           <div className="mt-4">
-            <DailyMarketAnalysis data={dailyAnalysis} />
+            <DailyMarketAnalysis
+              data={dailyAnalysis}
+              indices={indices}
+              aiAnalysis={aiAnalysis}
+              isAiLoading={isAiAnalysisLoading}
+            />
           </div>
         </section>
 
@@ -366,6 +400,7 @@ export default function LiveDashboard() {
               onClose={() => setSelectedFund(null)}
               isLoading={isLoadingFundDetail}
             />
+      <AiSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
       <ScrollToTop />
     </>
   )
@@ -397,14 +432,14 @@ function StatCard({
 }) {
   const content = (
     <Card className="transition-colors hover:bg-secondary/50 cursor-pointer">
-      <CardContent className="flex flex-col items-center text-center p-2 sm:p-3 sm:flex-row sm:text-left sm:gap-3">
-        <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-secondary mb-1 sm:mb-0">
+      <CardContent className="flex flex-col items-center text-center p-3 sm:p-3 sm:flex-row sm:text-left sm:gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary mb-1.5 sm:mb-0">
           {icon}
         </div>
         <div className="min-w-0">
-          <p className="text-[10px] sm:text-xs text-muted-foreground">{label}</p>
-          <p className="text-sm sm:text-base font-bold leading-tight">{value}</p>
-          <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight truncate">{sub}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">{label}</p>
+          <p className="text-base sm:text-lg font-bold leading-tight">{value}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground leading-tight truncate">{sub}</p>
         </div>
       </CardContent>
     </Card>

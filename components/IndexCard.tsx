@@ -20,22 +20,22 @@ export default function IndexCard({
       )}
     >
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-base shrink-0 leading-tight">{data.flag}</span>
+        <span className="text-lg shrink-0 leading-tight">{data.flag}</span>
         <div className="min-w-0">
-          <h3 className="text-xs font-medium truncate">{data.name}</h3>
-          <p className="text-[10px] text-muted-foreground">{data.code}</p>
+          <h3 className="text-sm font-medium truncate">{data.name}</h3>
+          <p className="text-xs text-muted-foreground">{data.code}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+      <div className="flex items-center gap-3 sm:gap-4 shrink-0">
         <div className="text-right">
-          <p className="text-xs sm:text-sm font-bold tabular-nums">{data.value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          <p className={cn('text-[10px] tabular-nums', isPositive ? 'text-success' : 'text-destructive')}>
+          <p className="text-sm sm:text-base font-bold tabular-nums">{data.value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className={cn('text-xs tabular-nums', isPositive ? 'text-success' : 'text-destructive')}>
             {isPositive ? '+' : ''}{data.change.toFixed(2)}
           </p>
         </div>
         <span
           className={cn(
-            'text-xs font-semibold tabular-nums px-1.5 py-0.5 rounded',
+            'text-sm font-semibold tabular-nums px-1.5 py-0.5 rounded',
             isPositive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
           )}
         >

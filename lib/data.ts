@@ -54,6 +54,15 @@ export interface DailyAnalysisData {
   turnoverTrend: TurnoverTrendData | null
 }
 
+export interface DailyAiAnalysis {
+  title: string
+  summary: string
+  bullets: string[]
+  sentiment: 'bullish' | 'bearish' | 'neutral'
+  source: 'ai' | 'rule'
+  provider?: string
+}
+
 export interface IndexData {
   name: string
   code: string

@@ -1,4 +1,6 @@
-import type { IndexData, StockData, FundData, FundRankingData, MarketStatsData, SectorData, SectorCapitalFlowData, DailyAnalysisData, TurnoverTrendData, TurnoverTrendPoint } from './data'
+import type { IndexData, StockData, FundData, FundRankingData, MarketStatsData, SectorData, SectorCapitalFlowData, DailyAnalysisData, TurnoverTrendData, TurnoverTrendPoint, DailyAiAnalysis } from './data'
+import { buildRuleBasedAiAnalysis, buildAiUserPrompt, parseAiAnalysis } from './ai-daily-analysis'
+import { getAiConfig, hasAiConfig } from './ai-config'
 
 /* ── JSONP Utility ─────────────────────────────── */
 
@@ -639,9 +641,13 @@ export async function fetchFundRanking(): Promise<FundRankingData[]> {
 
 export async function fetchMarketStats(): Promise<MarketStatsData | null> {
   try {
-    const [statsRes, turnoverRes, limitUpRes, limitDownRes] = await Promise.allSettled([
+    const [shRes, szRes, turnoverRes, limitUpRes, limitDownRes] = await Promise.allSettled([
       jsonp<any>(
         `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=1.000001&fields=f104,f105,f106&_=${Date.now()}`,
+        'cb'
+      ),
+      jsonp<any>(
+        `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=0.399001&fields=f104,f105,f106&_=${Date.now()}`,
         'cb'
       ),
       jsonp<any>(
@@ -659,11 +665,21 @@ export async function fetchMarketStats(): Promise<MarketStatsData | null> {
     ])
 
     let advancers = 0, decliners = 0, unchanged = 0
-    if (statsRes.status === 'fulfilled' && statsRes.value?.data?.diff?.[0]) {
-      const d = statsRes.value.data.diff[0]
-      advancers = typeof d.f104 === 'number' ? d.f104 : 0
-      decliners = typeof d.f105 === 'number' ? d.f105 : 0
-      unchanged = typeof d.f106 === 'number' ? d.f106 : 0
+
+    // 沪市涨跌家数
+    if (shRes.status === 'fulfilled' && shRes.value?.data?.diff?.[0]) {
+      const d = shRes.value.data.diff[0]
+      advancers += typeof d.f104 === 'number' ? d.f104 : 0
+      decliners += typeof d.f105 === 'number' ? d.f105 : 0
+      unchanged += typeof d.f106 === 'number' ? d.f106 : 0
+    }
+
+    // 深市涨跌家数
+    if (szRes.status === 'fulfilled' && szRes.value?.data?.diff?.[0]) {
+      const d = szRes.value.data.diff[0]
+      advancers += typeof d.f104 === 'number' ? d.f104 : 0
+      decliners += typeof d.f105 === 'number' ? d.f105 : 0
+      unchanged += typeof d.f106 === 'number' ? d.f106 : 0
     }
 
     let totalTurnover = 0
@@ -916,5 +932,56 @@ export async function fetchDailyAnalysis(): Promise<DailyAnalysisData> {
     conceptSectors: conceptRes.status === 'fulfilled' ? conceptRes.value : [],
     capitalFlow: flowRes.status === 'fulfilled' ? flowRes.value : [],
     turnoverTrend: trendRes.status === 'fulfilled' ? trendRes.value : null,
+  }
+}
+
+export async function generateDailyAiAnalysis(
+  indices: IndexData[],
+  dailyAnalysis: DailyAnalysisData
+): Promise<DailyAiAnalysis> {
+  const fallback = buildRuleBasedAiAnalysis(dailyAnalysis, indices)
+
+  if (!hasAiConfig()) return fallback
+
+  try {
+    const config = getAiConfig()
+    const baseUrl = config.baseUrl.replace(/\/+$/, '')
+    const userPrompt = buildAiUserPrompt(dailyAnalysis, indices)
+
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [
+          {
+            role: 'system',
+            content: '你是一位专业的中国股市分析师，擅长用简洁、客观的中文总结当日市场情况。请严格按要求输出 JSON，不要添加任何额外内容。',
+          },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 600,
+      }),
+    })
+
+    if (!response.ok) {
+      console.warn('[AiAnalysis] API returned', response.status)
+      return fallback
+    }
+
+    const json = await response.json()
+    const raw = json?.choices?.[0]?.message?.content
+    if (!raw || typeof raw !== 'string') return fallback
+
+    const provider = config.baseUrl.includes('deepseek') ? 'DeepSeek' : config.baseUrl.includes('groq') ? 'Groq' : 'OpenAI'
+
+    return parseAiAnalysis(raw, fallback, provider)
+  } catch (err) {
+    console.warn('[AiAnalysis] fetch error:', err)
+    return fallback
   }
 }
