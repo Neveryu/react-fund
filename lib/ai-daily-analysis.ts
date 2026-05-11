@@ -213,7 +213,7 @@ export function parseAiAnalysis(
         ? parsed.sentiment
         : fallback.sentiment
     const bullets = Array.isArray(parsed.bullets)
-      ? parsed.bullets.map((item) => String(item).trim()).filter(Boolean).slice(0, 4)
+      ? parsed.bullets.map((item: unknown) => String(item).trim()).filter(Boolean).slice(0, 4)
       : []
 
     return {
