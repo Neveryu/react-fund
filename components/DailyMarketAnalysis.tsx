@@ -10,8 +10,9 @@ import MarketOverview from './MarketOverview'
 import SectorRankingTable from './SectorRankingTable'
 import CapitalFlowTable from './CapitalFlowTable'
 import TurnoverComparison from './TurnoverComparison'
+import SectorAnalysis from './SectorAnalysis'
 
-type Tab = 'industry' | 'concept' | 'capital'
+type Tab = 'industry' | 'concept' | 'capital' | 'analysis'
 
 function InsightStat({
   label,
@@ -69,6 +70,7 @@ export default function DailyMarketAnalysis({
         : 'bg-secondary text-foreground'
 
   const tabs: { key: Tab; label: string }[] = [
+    { key: 'analysis', label: '板块分析' },
     { key: 'industry', label: '行业板块' },
     { key: 'concept', label: '概念板块' },
     { key: 'capital', label: '资金流向' },
@@ -170,6 +172,13 @@ export default function DailyMarketAnalysis({
           ))}
         </div>
 
+        {tab === 'analysis' && (
+          <SectorAnalysis
+            industrySectors={data.industrySectors}
+            conceptSectors={data.conceptSectors}
+            capitalFlow={data.capitalFlow}
+          />
+        )}
         {tab === 'industry' && (
           <SectorRankingTable data={data.industrySectors} title="行业板块" />
         )}
