@@ -140,6 +140,9 @@ export default function AiSettingsModal({
               <p className="text-[10px] text-muted-foreground">
                 <span className="font-medium">Groq</span>：llama-3.3-70b-versatile（baseUrl: https://api.groq.com/openai/v1）
               </p>
+              <p className="text-[10px] text-muted-foreground">
+                <span className="font-medium">阿里云百炼</span>：qwen-max / qwen-plus / qwen-turbo（baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1）
+              </p>
             </div>
           </div>
         </div>
