@@ -282,10 +282,7 @@ export default function LiveDashboard() {
                   key={fund.code}
                   data={fund}
                   onRemove={() => removeFund(fund.code)}
-                  onClick={() => {
-                    setSelectedFund(fund)
-                    setIsLoadingFundDetail(true)
-                  }}
+                  onClick={() => handleSelectFund(fund)}
                 />
               ))
             ) : (
