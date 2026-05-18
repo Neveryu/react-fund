@@ -53,6 +53,7 @@ export default function LiveDashboard() {
   const [dailyAnalysis, setDailyAnalysis] = useState<DailyAnalysisData>({
     marketStats: null,
     industrySectors: [],
+    allIndustrySectors: [],
     conceptSectors: [],
     capitalFlow: [],
     turnoverTrend: null,
