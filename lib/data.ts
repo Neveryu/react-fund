@@ -49,6 +49,7 @@ export interface TurnoverTrendData {
 export interface DailyAnalysisData {
   marketStats: MarketStatsData | null
   industrySectors: SectorData[]
+  allIndustrySectors: SectorData[]
   conceptSectors: SectorData[]
   capitalFlow: SectorCapitalFlowData[]
   turnoverTrend: TurnoverTrendData | null

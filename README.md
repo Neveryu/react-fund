@@ -129,6 +129,17 @@ https://<用户名>.github.io/react-fund/
 
 ---
 
+## 命令补充说明
+
+1、`next start` 是用于启动 生产环境 的命令，它要求项目根目录下的 `.next` 文件夹中必须存在已经编译好的生产构建产物。你当前还没有执行构建步骤，因此 Next.js 找不到启动所需文件。
+
+2、如果你确实需要运行生产版本，必须 先构建，再启动：
+
+```bash
+npm run build # 生成 .next 目录（等同于 next build）
+npm start # 启动生产环境服务器（等同于 next start）
+```
+
 ## 项目结构
 
 ```

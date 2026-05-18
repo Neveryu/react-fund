@@ -566,23 +566,38 @@ export async function fetchFundDetail(code: string): Promise<FundDetail | null> 
     ;(window as any).Data_currentFundManager = undefined
     ;(window as any).Data_fundInfo = undefined
     
-    // 获取持仓信息 - 使用 JSONP 方式（不受 CORS 限制）
+    // 获取持仓信息 - 使用 loadScriptVar 加载脚本读取 apidata 变量，再解析 HTML
     try {
       const holdingsUrl = `https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=${code}&topline=10&year=&month=&_=${Date.now()}`
       
-      const holdingsData = await jsonp<any>(holdingsUrl, 'callback')
+      const apidata = await loadScriptVar<any>(holdingsUrl, 'apidata', 8000)
+      ;(window as any).apidata = undefined
       
-      // 尝试从不同数据结构中获取持仓
-      const holdingsArray = holdingsData?.content || holdingsData?.datas || 
-                           (holdingsData?.Array && holdingsData.Array[0]?.holdingList) ||
-                           (Array.isArray(holdingsData) ? holdingsData : null)
-      
-      if (holdingsArray && Array.isArray(holdingsArray)) {
-        result.holdings = holdingsArray.slice(0, 10).map((item: any) => ({
-          name: item.SNAME || item.name || item.股票名称 || item.holdingName || '',
-          code: item.SCODE || item.code || item.股票代码 || item.holdingCode || '',
-          percent: parseFloat(item.JZBL || item.ratio || item.持仓比例 || item.占净值比例 || item.holdingPercent || '0'),
-        })).filter((item: any) => item.name && item.code)
+      if (apidata?.content && typeof apidata.content === 'string') {
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(apidata.content, 'text/html')
+        const rows = doc.querySelectorAll('table tbody tr')
+        
+        const holdings: { name: string; code: string; percent: number }[] = []
+        rows.forEach((row) => {
+          const cells = row.querySelectorAll('td')
+          if (cells.length >= 7) {
+            const codeText = cells[1]?.textContent?.trim() || ''
+            const nameText = cells[2]?.textContent?.trim() || ''
+            const percentText = cells[6]?.textContent?.trim().replace('%', '') || '0'
+            if (codeText && nameText) {
+              holdings.push({
+                name: nameText,
+                code: codeText,
+                percent: parseFloat(percentText) || 0,
+              })
+            }
+          }
+        })
+        
+        if (holdings.length > 0) {
+          result.holdings = holdings.slice(0, 10)
+        }
       }
     } catch {
       // 持仓请求失败，忽略错误
@@ -711,11 +726,12 @@ export async function fetchMarketStats(): Promise<MarketStatsData | null> {
 }
 
 export async function fetchSectorRanking(
-  type: 'industry' | 'concept'
+  type: 'industry' | 'concept',
+  pageSize = 10
 ): Promise<SectorData[]> {
   try {
     const fs = type === 'industry' ? 'm:90+t:2' : 'm:90+t:3'
-    const url = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=10&po=1&np=1&fltt=2&invt=2&fid=f3&fs=${fs}&fields=f2,f3,f4,f12,f14,f104,f105,f128,f140&_=${Date.now()}`
+    const url = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=${pageSize}&po=1&np=1&fltt=2&invt=2&fid=f3&fs=${fs}&fields=f2,f3,f4,f12,f14,f104,f105,f128,f140&_=${Date.now()}`
     const data = await jsonp<any>(url, 'cb')
 
     if (data.rc !== 0 || !data.data?.diff) return []
@@ -735,6 +751,35 @@ export async function fetchSectorRanking(
       }))
   } catch (err) {
     console.error(`[fetchSectorRanking] ${type} error:`, err)
+    return []
+  }
+}
+
+/** 获取所有行业板块（用于热力图，包含涨跌） */
+export async function fetchAllIndustrySectors(): Promise<SectorData[]> {
+  try {
+    const fs = 'm:90+t:2'
+    // 获取所有行业板块（按涨幅排序，取前100）
+    const url = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=100&po=1&np=1&fltt=2&invt=2&fid=f3&fs=${fs}&fields=f2,f3,f4,f12,f14,f104,f105,f128,f140&_=${Date.now()}`
+    const data = await jsonp<any>(url, 'cb')
+
+    if (data.rc !== 0 || !data.data?.diff) return []
+
+    return data.data.diff
+      .filter((item: any) => typeof item.f3 === 'number')
+      .map((item: any) => ({
+        name: item.f14 || '',
+        code: String(item.f12 || ''),
+        changePercent: item.f3,
+        change: typeof item.f4 === 'number' ? item.f4 : 0,
+        price: typeof item.f2 === 'number' ? item.f2 : 0,
+        advancers: typeof item.f104 === 'number' ? item.f104 : 0,
+        decliners: typeof item.f105 === 'number' ? item.f105 : 0,
+        leadStock: item.f128 || '--',
+        leadStockCode: item.f140 || '',
+      }))
+  } catch (err) {
+    console.error('[fetchAllIndustrySectors] error:', err)
     return []
   }
 }
@@ -918,9 +963,10 @@ export async function fetchTurnoverTrend(): Promise<TurnoverTrendData | null> {
 }
 
 export async function fetchDailyAnalysis(): Promise<DailyAnalysisData> {
-  const [statsRes, industryRes, conceptRes, flowRes, trendRes] = await Promise.allSettled([
+  const [statsRes, allIndustryRes, industryRes, conceptRes, flowRes, trendRes] = await Promise.allSettled([
     fetchMarketStats(),
-    fetchSectorRanking('industry'),
+    fetchAllIndustrySectors(),
+    fetchSectorRanking('industry', 10),
     fetchSectorRanking('concept'),
     fetchSectorCapitalFlow(),
     fetchTurnoverTrend(),
@@ -929,6 +975,7 @@ export async function fetchDailyAnalysis(): Promise<DailyAnalysisData> {
   return {
     marketStats: statsRes.status === 'fulfilled' ? statsRes.value : null,
     industrySectors: industryRes.status === 'fulfilled' ? industryRes.value : [],
+    allIndustrySectors: allIndustryRes.status === 'fulfilled' ? allIndustryRes.value : [],
     conceptSectors: conceptRes.status === 'fulfilled' ? conceptRes.value : [],
     capitalFlow: flowRes.status === 'fulfilled' ? flowRes.value : [],
     turnoverTrend: trendRes.status === 'fulfilled' ? trendRes.value : null,

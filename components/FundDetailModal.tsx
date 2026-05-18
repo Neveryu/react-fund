@@ -35,23 +35,24 @@ function adaptFundData(data: FundRankingData | FundData): FundDetailInfo {
     // FundRankingData
     return data as FundDetailInfo
   }
-  // FundData
+  // FundData (may have been enriched by fetchFundDetail with manager, scale, holdings)
+  const enriched = data as FundData & { manager?: string; scale?: string; holdings?: { name: string; code: string; percent: number }[] }
   return {
-    name: data.name,
-    code: data.code,
-    type: data.type,
-    nav: data.nav,
-    navDate: data.navDate,
-    dayChange: data.dayChange,
-    manager: data.manager,
-    scale: data.scale,
-    weekChange: data.returns?.oneWeek ?? 0,
-    monthChange: data.returns?.oneMonth ?? 0,
-    threeMonth: data.returns?.threeMonth ?? 0,
-    sixMonth: data.returns?.sixMonth ?? 0,
-    oneYear: data.returns?.oneYear ?? 0,
+    name: enriched.name,
+    code: enriched.code,
+    type: enriched.type,
+    nav: enriched.nav,
+    navDate: enriched.navDate,
+    dayChange: enriched.dayChange,
+    manager: enriched.manager,
+    scale: enriched.scale,
+    weekChange: enriched.returns?.oneWeek ?? 0,
+    monthChange: enriched.returns?.oneMonth ?? 0,
+    threeMonth: enriched.returns?.threeMonth ?? 0,
+    sixMonth: enriched.returns?.sixMonth ?? 0,
+    oneYear: enriched.returns?.oneYear ?? 0,
     twoYear: 0,
-    holdings: undefined,
+    holdings: enriched.holdings,
   }
 }
 
@@ -79,11 +80,11 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
 
       {/* Modal */}
       <div
-        className="relative bg-background border border-border rounded-xl shadow-2xl w-full max-w-lg overflow-hidden"
+        className="relative bg-background border border-border rounded-xl shadow-2xl w-full max-w-lg max-h-[calc(100vh-2rem)] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between p-5 border-b border-border">
+        <div className="flex items-start justify-between p-5 border-b border-border shrink-0">
           <div>
             <h2 className="text-xl font-bold">{info.name}</h2>
             <p className="text-sm text-muted-foreground mt-1">{info.code} · {info.type}</p>
@@ -96,8 +97,10 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
           </button>
         </div>
 
-        {/* 基本信息 */}
-        <div className="px-5 py-3 bg-secondary/20 border-b border-border">
+        {/* Scrollable content */}
+        <div className="overflow-y-auto">
+          {/* 基本信息 */}
+          <div className="px-5 py-3 bg-secondary/20 border-b border-border">
           <div className="flex items-center gap-6 text-sm">
             {isLoading && !hasDetail ? (
               <div className="text-muted-foreground">正在加载基金详情...</div>
@@ -248,7 +251,7 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
               </div>
             ) : info.holdings && info.holdings.length > 0 ? (
               <div className="space-y-2">
-                {info.holdings.slice(0, 5).map((holding, index) => (
+                {info.holdings.slice(0, 10).map((holding, index) => (
                   <div
                     key={holding.code}
                     className="flex items-center justify-between py-2 px-3 bg-secondary/30 rounded-lg"
@@ -271,6 +274,7 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
               <div className="text-sm text-muted-foreground py-4 text-center">暂无持仓数据</div>
             )}
           </div>
+        </div>
         </div>
       </div>
     </div>
