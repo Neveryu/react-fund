@@ -992,7 +992,7 @@ export async function fetchHeatmapData(): Promise<HeatmapSector[]> {
       }))
 
     const results: HeatmapSector[] = await Promise.all(
-      topSectors.map(async (sector) => {
+      topSectors.map(async (sector: { name: string; code: string; changePercent: number; marketCap: number }) => {
         try {
           const stockUrl = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=15&po=1&np=1&fltt=2&invt=2&fid=f20&fs=b:${sector.code}&fields=f3,f12,f14,f20&_=${Date.now()}`
           const stockData = await jsonp<any>(stockUrl, 'cb')
@@ -1022,7 +1022,7 @@ export async function fetchHeatmapData(): Promise<HeatmapSector[]> {
           return null
         }
       })
-    ).then(res => res.filter((s): s is HeatmapSector => s !== null))
+    ).then((res: (HeatmapSector | null)[]) => res.filter((s): s is HeatmapSector => s !== null))
 
     return results
   } catch (err) {
