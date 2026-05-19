@@ -1,4 +1,4 @@
-import type { IndexData, StockData, FundData, FundRankingData, MarketStatsData, SectorData, SectorCapitalFlowData, DailyAnalysisData, TurnoverTrendData, TurnoverTrendPoint, DailyAiAnalysis } from './data'
+import type { IndexData, StockData, FundData, FundRankingData, MarketStatsData, SectorData, SectorCapitalFlowData, DailyAnalysisData, TurnoverTrendData, TurnoverTrendPoint, DailyAiAnalysis, HeatmapSector, HeatmapStock } from './data'
 import { buildRuleBasedAiAnalysis, buildAiUserPrompt, parseAiAnalysis } from './ai-daily-analysis'
 import { getAiConfig, hasAiConfig } from './ai-config'
 
@@ -974,14 +974,71 @@ export async function fetchTurnoverTrend(): Promise<TurnoverTrendData | null> {
   }
 }
 
+export async function fetchHeatmapData(): Promise<HeatmapSector[]> {
+  try {
+    const sectorUrl = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=30&po=1&np=1&fltt=2&invt=2&fid=f20&fs=m:90+t:2+f:!50&fields=f3,f12,f14,f20&_=${Date.now()}`
+    const sectorData = await jsonp<any>(sectorUrl, 'cb')
+
+    if (sectorData.rc !== 0 || !sectorData.data?.diff) return []
+
+    const topSectors = sectorData.data.diff
+      .filter((item: any) => typeof item.f3 === 'number' && typeof item.f20 === 'number' && item.f20 > 0)
+      .slice(0, 25)
+      .map((item: any) => ({
+        name: item.f14 || '',
+        code: String(item.f12 || ''),
+        changePercent: item.f3,
+        marketCap: item.f20,
+      }))
+
+    const results: HeatmapSector[] = []
+
+    for (const sector of topSectors) {
+      try {
+        const stockUrl = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=20&po=1&np=1&fltt=2&invt=2&fid=f20&fs=b:${sector.code}&fields=f3,f12,f14,f20&_=${Date.now()}`
+        const stockData = await jsonp<any>(stockUrl, 'cb')
+
+        if (stockData.rc !== 0 || !stockData.data?.diff) continue
+
+        const stocks: HeatmapStock[] = stockData.data.diff
+          .filter((item: any) => typeof item.f3 === 'number' && typeof item.f20 === 'number' && item.f20 > 0)
+          .map((item: any) => ({
+            name: item.f14 || '',
+            code: String(item.f12 || ''),
+            changePercent: item.f3,
+            marketCap: item.f20,
+          }))
+
+        if (stocks.length > 0) {
+          results.push({
+            name: sector.name,
+            code: sector.code,
+            changePercent: sector.changePercent,
+            marketCap: sector.marketCap,
+            stocks,
+          })
+        }
+      } catch {
+        continue
+      }
+    }
+
+    return results
+  } catch (err) {
+    console.error('[fetchHeatmapData] error:', err)
+    return []
+  }
+}
+
 export async function fetchDailyAnalysis(): Promise<DailyAnalysisData> {
-  const [statsRes, allIndustryRes, industryRes, conceptRes, flowRes, trendRes] = await Promise.allSettled([
+  const [statsRes, allIndustryRes, industryRes, conceptRes, flowRes, trendRes, heatmapRes] = await Promise.allSettled([
     fetchMarketStats(),
     fetchAllIndustrySectors(),
     fetchSectorRanking('industry', 10),
     fetchSectorRanking('concept'),
     fetchSectorCapitalFlow(),
     fetchTurnoverTrend(),
+    fetchHeatmapData(),
   ])
 
   return {
@@ -991,6 +1048,7 @@ export async function fetchDailyAnalysis(): Promise<DailyAnalysisData> {
     conceptSectors: conceptRes.status === 'fulfilled' ? conceptRes.value : [],
     capitalFlow: flowRes.status === 'fulfilled' ? flowRes.value : [],
     turnoverTrend: trendRes.status === 'fulfilled' ? trendRes.value : null,
+    heatmapData: heatmapRes.status === 'fulfilled' ? heatmapRes.value : [],
   }
 }
 

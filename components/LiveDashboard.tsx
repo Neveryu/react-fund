@@ -57,6 +57,7 @@ export default function LiveDashboard() {
     conceptSectors: [],
     capitalFlow: [],
     turnoverTrend: null,
+    heatmapData: [],
   })
   const [aiAnalysis, setAiAnalysis] = useState<DailyAiAnalysis | null>(null)
   const [lastUpdate, setLastUpdate] = useState<string>('')

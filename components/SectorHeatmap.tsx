@@ -2,71 +2,82 @@
 
 import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
-import type { SectorData } from '@/lib/data'
+import type { HeatmapSector } from '@/lib/data'
 
 interface SectorHeatmapProps {
-  sectors: SectorData[]
+  data: HeatmapSector[]
 }
 
-interface TreemapRect {
+interface Rect {
   x: number
   y: number
   w: number
   h: number
-  sector: SectorData
-  value: number
 }
 
-function squarify(items: { sector: SectorData; value: number }[], x: number, y: number, w: number, h: number): TreemapRect[] {
+function layoutRow(items: { value: number }[], x: number, y: number, w: number, h: number): Rect[] {
   if (items.length === 0) return []
-  if (items.length === 1) {
-    return [{ x, y, w, h, sector: items[0].sector, value: items[0].value }]
-  }
-
-  const totalValue = items.reduce((s, i) => s + i.value, 0)
-  if (totalValue === 0) return []
+  const total = items.reduce((s, i) => s + i.value, 0)
+  if (total === 0) return items.map(() => ({ x, y, w: 0, h: 0 }))
 
   const isWide = w >= h
-  const side = isWide ? w : h
+  const rects: Rect[] = []
+  let offset = 0
 
-  let row: typeof items = []
-  let rowArea = 0
-  const results: TreemapRect[] = []
+  for (const item of items) {
+    const fraction = item.value / total
+    if (isWide) {
+      const size = h * fraction
+      rects.push({ x, y: y + offset, w, h: size })
+      offset += size
+    } else {
+      const size = w * fraction
+      rects.push({ x: x + offset, y, w: size, h })
+      offset += size
+    }
+  }
 
-  let remaining = [...items]
+  return rects
+}
+
+function treemap(items: { value: number }[], x: number, y: number, w: number, h: number): Rect[] {
+  if (items.length === 0) return []
+  if (items.length === 1) return [{ x, y, w, h }]
+
+  const total = items.reduce((s, i) => s + i.value, 0)
+  if (total === 0) return items.map(() => ({ x, y, w: 0, h: 0 }))
+
+  const isWide = w >= h
+
+  let row: { value: number }[] = []
+  let rowValue = 0
+  let bestAspect = Infinity
+  const results: Rect[] = []
   let cx = x, cy = y, cw = w, ch = h
+  let remaining = [...items]
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
-    const itemArea = (item.value / totalValue) * side * (isWide ? h : w)
-
     const testRow = [...row, item]
-    const testArea = rowArea + itemArea
-    const rowSide = testArea / side
+    const testValue = rowValue + item.value
+    const fraction = testValue / total
+    const side = isWide ? cw * fraction : ch * fraction
+    const otherSide = isWide ? ch : cw
 
-    let worst = Infinity
+    let worst = 0
     for (const r of testRow) {
-      const a = (r.value / totalValue) * side * (isWide ? h : w)
-      const ratio = Math.max(rowSide / (a / rowSide), (a / rowSide) / rowSide)
-      worst = Math.min(worst, ratio)
+      const rFrac = r.value / testValue
+      const a = otherSide * rFrac
+      const ratio = Math.max(side / a, a / side)
+      worst = Math.max(worst, ratio)
     }
 
-    if (row.length > 0 && worst > 2.5) {
-      const rowTotal = row.reduce((s, r) => s + r.value, 0)
-      const rowFraction = rowTotal / totalValue
+    if (row.length > 0 && worst > bestAspect) {
+      const rowFraction = rowValue / total
       const cutSize = isWide ? cw * rowFraction : ch * rowFraction
 
-      let offset = 0
-      for (const r of row) {
-        const rFraction = r.value / rowTotal
-        const size = (isWide ? ch : cw) * rFraction
-        if (isWide) {
-          results.push({ x: cx, y: cy + offset, w: cutSize, h: size, sector: r.sector, value: r.value })
-        } else {
-          results.push({ x: cx + offset, y: cy, w: size, h: cutSize, sector: r.sector, value: r.value })
-        }
-        offset += size
-      }
+      const rowRects = layoutRow(row, cx, cy, isWide ? cutSize : cw, isWide ? ch : cutSize)
+      results.push(...rowRects)
 
       if (isWide) {
         cx += cutSize
@@ -76,77 +87,86 @@ function squarify(items: { sector: SectorData; value: number }[], x: number, y: 
         ch -= cutSize
       }
 
-      const rowValue = row.reduce((s, r) => s + r.value, 0)
       remaining = remaining.slice(row.length)
-      const newTotal = remaining.reduce((s, r) => s + r.value, 0)
-      if (remaining.length > 0 && newTotal > 0 && cw > 0 && ch > 0) {
-        results.push(...squarify(remaining, cx, cy, cw, ch))
+      if (remaining.length > 0 && cw > 0.01 && ch > 0.01) {
+        results.push(...treemap(remaining, cx, cy, cw, ch))
       }
       return results
     }
 
+    bestAspect = worst
     row.push(item)
-    rowArea = testArea
+    rowValue = testValue
   }
 
-  let offset = 0
-  const rowTotal = row.reduce((s, r) => s + r.value, 0)
-  for (const r of row) {
-    const rFraction = rowTotal > 0 ? r.value / rowTotal : 1 / row.length
-    const size = (isWide ? ch : cw) * rFraction
-    if (isWide) {
-      results.push({ x: cx, y: cy + offset, w: cw, h: size, sector: r.sector, value: r.value })
-    } else {
-      results.push({ x: cx + offset, y: cy, w: size, h: ch, sector: r.sector, value: r.value })
-    }
-    offset += size
-  }
+  const rowFraction = rowValue / total
+  const cutSize = isWide ? cw * rowFraction : ch * rowFraction
+  const rowRects = layoutRow(row, cx, cy, isWide ? cutSize : cw, isWide ? ch : cutSize)
+  results.push(...rowRects)
 
   return results
 }
 
-function getBlockColor(value: number, maxAbs: number): { bg: string; text: string } {
+function getColor(value: number): { bg: string; text: string } {
+  if (value >= 5) return { bg: 'bg-red-600', text: 'text-white' }
+  if (value >= 3) return { bg: 'bg-red-500', text: 'text-white' }
+  if (value >= 1.5) return { bg: 'bg-red-400', text: 'text-white' }
+  if (value >= 0.5) return { bg: 'bg-red-300', text: 'text-red-900' }
+  if (value > 0) return { bg: 'bg-red-200', text: 'text-red-800' }
   if (value === 0) return { bg: 'bg-gray-200', text: 'text-gray-600' }
-  const ratio = value / maxAbs
-  if (value > 0) {
-    if (ratio > 0.6) return { bg: 'bg-red-500', text: 'text-white' }
-    if (ratio > 0.3) return { bg: 'bg-red-400', text: 'text-white' }
-    if (ratio > 0.1) return { bg: 'bg-red-300', text: 'text-red-900' }
-    return { bg: 'bg-red-200', text: 'text-red-800' }
-  }
-  if (ratio < -0.6) return { bg: 'bg-green-600', text: 'text-white' }
-  if (ratio < -0.3) return { bg: 'bg-green-500', text: 'text-white' }
-  if (ratio < -0.1) return { bg: 'bg-green-400', text: 'text-green-900' }
-  return { bg: 'bg-green-300', text: 'text-green-800' }
+  if (value > -0.5) return { bg: 'bg-green-200', text: 'text-green-800' }
+  if (value > -1.5) return { bg: 'bg-green-300', text: 'text-green-900' }
+  if (value > -3) return { bg: 'bg-green-400', text: 'text-white' }
+  if (value > -5) return { bg: 'bg-green-500', text: 'text-white' }
+  return { bg: 'bg-green-600', text: 'text-white' }
 }
 
-export default function SectorHeatmap({ sectors }: SectorHeatmapProps) {
-  const rects = useMemo(() => {
-    if (!sectors.length) return []
+function formatMarketCap(v: number): string {
+  if (v >= 1e12) return (v / 1e12).toFixed(1) + '万亿'
+  if (v >= 1e8) return (v / 1e8).toFixed(0) + '亿'
+  return (v / 1e4).toFixed(0) + '万'
+}
 
-    const filtered = sectors.filter((s) => Math.abs(s.changePercent) > 0.01)
-    const sorted = [...filtered].sort((a, b) => Math.abs(b.changePercent) - Math.abs(a.changePercent))
+export default function SectorHeatmap({ data }: SectorHeatmapProps) {
+  const layout = useMemo(() => {
+    if (!data.length) return []
 
-    const top = sorted.slice(0, 60)
+    const sectorItems = data.map((s) => ({ sector: s, value: s.marketCap }))
+    const sectorRects = treemap(sectorItems, 0, 0, 100, 100)
 
-    const items = top.map((s) => ({
-      sector: s,
-      value: Math.abs(s.changePercent),
-    }))
+    const result: {
+      sector: HeatmapSector
+      rect: Rect
+      stocks: { stock: HeatmapStock; rect: Rect }[]
+    }[] = []
 
-    return squarify(items, 0, 0, 100, 100)
-  }, [sectors])
+    for (let i = 0; i < sectorItems.length; i++) {
+      const sr = sectorRects[i]
+      if (!sr || sr.w < 0.01 || sr.h < 0.01) continue
 
-  if (!sectors.length) return null
+      const sector = sectorItems[i].sector
+      const stockItems = sector.stocks.map((st) => ({ stock: st, value: st.marketCap }))
+      const stockRects = treemap(stockItems, sr.x, sr.y, sr.w, sr.h)
 
-  const maxAbs = Math.max(...sectors.map((s) => Math.abs(s.changePercent)), 0.1)
+      const stocks = stockItems.map((si, j) => ({
+        stock: si.stock,
+        rect: stockRects[j] || { x: sr.x, y: sr.y, w: 0, h: 0 },
+      }))
+
+      result.push({ sector, rect: sr, stocks })
+    }
+
+    return result
+  }, [data])
+
+  if (!data.length) return null
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/80 overflow-hidden">
       {/* 比例尺 */}
       <div className="flex items-center justify-end gap-1.5 px-4 py-2 border-b border-border/50">
-        {[-3, -2, -1, 0, 1, 2, 3].map((v) => {
-          const { bg } = getBlockColor(v, 3)
+        {[-5, -3, -1, 0, 1, 3, 5].map((v) => {
+          const { bg } = getColor(v)
           return (
             <span key={v} className="flex items-center gap-1 text-[10px] text-muted-foreground">
               <span className={cn('inline-block w-4 h-4 rounded', bg)} />
@@ -159,39 +179,63 @@ export default function SectorHeatmap({ sectors }: SectorHeatmapProps) {
       {/* Treemap */}
       <div className="p-2">
         <div className="relative w-full" style={{ paddingBottom: '65%' }}>
-          {rects.map((rect) => {
-            const { bg, text } = getBlockColor(rect.sector.changePercent, maxAbs)
-            const area = rect.w * rect.h
-            const showName = area > 1.5
-            const showPercent = area > 0.8
-            const fontSize = area > 8 ? 'text-sm' : area > 3 ? 'text-xs' : 'text-[10px]'
-            const percentSize = area > 8 ? 'text-xs' : area > 3 ? 'text-[10px]' : 'text-[9px]'
+          {layout.map((group) => {
+            const sectorArea = group.rect.w * group.rect.h
+            const showSectorLabel = sectorArea > 2
 
             return (
-              <div
-                key={rect.sector.code}
-                className={cn(
-                  'absolute flex flex-col items-center justify-center overflow-hidden transition-opacity hover:opacity-80 cursor-default border border-white/10',
-                  bg,
-                  text
-                )}
-                style={{
-                  left: `${rect.x}%`,
-                  top: `${rect.y}%`,
-                  width: `${rect.w}%`,
-                  height: `${rect.h}%`,
-                }}
-              >
-                {showName && (
-                  <span className={cn('font-medium truncate max-w-full px-1 leading-tight', fontSize)}>
-                    {rect.sector.name}
-                  </span>
-                )}
-                {showPercent && (
-                  <span className={cn('leading-tight', percentSize)}>
-                    {rect.sector.changePercent >= 0 ? '+' : ''}
-                    {rect.sector.changePercent.toFixed(2)}%
-                  </span>
+              <div key={group.sector.code}>
+                {group.stocks.map((item) => {
+                  const { bg, text } = getColor(item.stock.changePercent)
+                  const area = item.rect.w * item.rect.h
+                  const showName = area > 0.8
+                  const showPercent = area > 0.5
+                  const fontSize = area > 6 ? 'text-sm' : area > 2 ? 'text-xs' : 'text-[10px]'
+                  const percentSize = area > 6 ? 'text-xs' : area > 2 ? 'text-[10px]' : 'text-[9px]'
+
+                  return (
+                    <div
+                      key={item.stock.code}
+                      className={cn(
+                        'absolute flex flex-col items-center justify-center overflow-hidden cursor-default',
+                        bg,
+                        text
+                      )}
+                      style={{
+                        left: `${item.rect.x}%`,
+                        top: `${item.rect.y}%`,
+                        width: `${item.rect.w}%`,
+                        height: `${item.rect.h}%`,
+                      }}
+                      title={`${item.stock.name} ${item.stock.changePercent >= 0 ? '+' : ''}${item.stock.changePercent.toFixed(2)}% 市值${formatMarketCap(item.stock.marketCap)}`}
+                    >
+                      {showName && (
+                        <span className={cn('font-medium truncate max-w-full px-0.5 leading-tight', fontSize)}>
+                          {item.stock.name}
+                        </span>
+                      )}
+                      {showPercent && (
+                        <span className={cn('leading-tight', percentSize)}>
+                          {item.stock.changePercent >= 0 ? '+' : ''}{item.stock.changePercent.toFixed(2)}%
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {showSectorLabel && (
+                  <div
+                    className="absolute pointer-events-none z-10"
+                    style={{
+                      left: `${group.rect.x}%`,
+                      top: `${group.rect.y}%`,
+                      width: `${group.rect.w}%`,
+                    }}
+                  >
+                    <span className="text-[10px] font-bold text-white/90 bg-black/30 px-1.5 py-0.5 rounded-br inline-block backdrop-blur-[1px]">
+                      {group.sector.name}
+                    </span>
+                  </div>
                 )}
               </div>
             )

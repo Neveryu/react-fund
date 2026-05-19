@@ -182,7 +182,7 @@ export default function DailyMarketAnalysis({
           />
         )}
         {tab === 'heatmap' && (
-          <SectorHeatmap sectors={data.allIndustrySectors} />
+          <SectorHeatmap data={data.heatmapData} />
         )}
         {tab === 'industry' && (
           <SectorRankingTable data={data.industrySectors} title="行业板块" />

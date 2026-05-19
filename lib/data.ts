@@ -46,6 +46,21 @@ export interface TurnoverTrendData {
   szChangePercent: number           // 深证成指今日涨跌幅
 }
 
+export interface HeatmapSector {
+  name: string
+  code: string
+  changePercent: number
+  marketCap: number
+  stocks: HeatmapStock[]
+}
+
+export interface HeatmapStock {
+  name: string
+  code: string
+  changePercent: number
+  marketCap: number
+}
+
 export interface DailyAnalysisData {
   marketStats: MarketStatsData | null
   industrySectors: SectorData[]
@@ -53,6 +68,7 @@ export interface DailyAnalysisData {
   conceptSectors: SectorData[]
   capitalFlow: SectorCapitalFlowData[]
   turnoverTrend: TurnoverTrendData | null
+  heatmapData: HeatmapSector[]
 }
 
 export interface DailyAiAnalysis {
