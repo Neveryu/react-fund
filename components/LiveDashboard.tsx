@@ -239,13 +239,13 @@ export default function LiveDashboard() {
         {/* Global Indices */}
         <section id="indices">
           <SectionHeader title="全球指数" subtitle="主要市场实时行情" />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mt-4">
+          <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
             {indices.length > 0 ? (
               indices.map((index) => (
                 <IndexCard key={index.code} data={index} onClick={setSelectedIndex} />
               ))
             ) : (
-              <div className="col-span-full py-12 text-center text-muted-foreground text-sm">
+              <div className="py-12 text-center text-muted-foreground text-sm">
                 暂无全球指数数据，请检查网络连接
               </div>
             )}
