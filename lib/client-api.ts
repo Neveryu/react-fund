@@ -759,25 +759,37 @@ export async function fetchSectorRanking(
 export async function fetchAllIndustrySectors(): Promise<SectorData[]> {
   try {
     const fs = 'm:90+t:2'
-    // 获取所有行业板块（按涨幅排序，取前100）
-    const url = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=100&po=1&np=1&fltt=2&invt=2&fid=f3&fs=${fs}&fields=f2,f3,f4,f12,f14,f104,f105,f128,f140&_=${Date.now()}`
-    const data = await jsonp<any>(url, 'cb')
+    const allSectors: SectorData[] = []
+    let page = 1
+    const pageSize = 200
 
-    if (data.rc !== 0 || !data.data?.diff) return []
+    while (true) {
+      const url = `https://push2.eastmoney.com/api/qt/clist/get?pn=${page}&pz=${pageSize}&po=1&np=1&fltt=2&invt=2&fid=f3&fs=${fs}&fields=f2,f3,f4,f12,f14,f104,f105,f128,f140&_=${Date.now()}`
+      const data = await jsonp<any>(url, 'cb')
 
-    return data.data.diff
-      .filter((item: any) => typeof item.f3 === 'number')
-      .map((item: any) => ({
-        name: item.f14 || '',
-        code: String(item.f12 || ''),
-        changePercent: item.f3,
-        change: typeof item.f4 === 'number' ? item.f4 : 0,
-        price: typeof item.f2 === 'number' ? item.f2 : 0,
-        advancers: typeof item.f104 === 'number' ? item.f104 : 0,
-        decliners: typeof item.f105 === 'number' ? item.f105 : 0,
-        leadStock: item.f128 || '--',
-        leadStockCode: item.f140 || '',
-      }))
+      if (data.rc !== 0 || !data.data?.diff?.length) break
+
+      const items = data.data.diff
+        .filter((item: any) => typeof item.f3 === 'number')
+        .map((item: any) => ({
+          name: item.f14 || '',
+          code: String(item.f12 || ''),
+          changePercent: item.f3,
+          change: typeof item.f4 === 'number' ? item.f4 : 0,
+          price: typeof item.f2 === 'number' ? item.f2 : 0,
+          advancers: typeof item.f104 === 'number' ? item.f104 : 0,
+          decliners: typeof item.f105 === 'number' ? item.f105 : 0,
+          leadStock: item.f128 || '--',
+          leadStockCode: item.f140 || '',
+        }))
+
+      allSectors.push(...items)
+
+      if (items.length < pageSize) break
+      page++
+    }
+
+    return allSectors
   } catch (err) {
     console.error('[fetchAllIndustrySectors] error:', err)
     return []
