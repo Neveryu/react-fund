@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
-import type { HeatmapSector } from '@/lib/data'
+import type { HeatmapSector, HeatmapStock } from '@/lib/data'
 
 interface SectorHeatmapProps {
   data: HeatmapSector[]
