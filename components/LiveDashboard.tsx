@@ -261,6 +261,7 @@ export default function LiveDashboard() {
               indices={indices}
               aiAnalysis={aiAnalysis}
               isAiLoading={isAiAnalysisLoading}
+              isLoading={isRefreshing}
             />
           </div>
         </section>

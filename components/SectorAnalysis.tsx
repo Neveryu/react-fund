@@ -11,6 +11,14 @@ interface SectorAnalysisProps {
 }
 
 export default function SectorAnalysis({ industrySectors, conceptSectors, capitalFlow }: SectorAnalysisProps) {
+  if (industrySectors.length === 0 && conceptSectors.length === 0 && capitalFlow.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center rounded-lg border border-dashed border-border">
+        <p className="text-sm text-muted-foreground">暂无板块分析数据</p>
+      </div>
+    )
+  }
+
   const topIndustries = [...industrySectors].sort((a, b) => b.changePercent - a.changePercent).slice(0, 5)
   const bottomIndustries = [...industrySectors].sort((a, b) => a.changePercent - b.changePercent).slice(0, 3)
   const topConcepts = [...conceptSectors].sort((a, b) => b.changePercent - a.changePercent).slice(0, 5)

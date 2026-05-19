@@ -159,7 +159,13 @@ export default function SectorHeatmap({ data }: SectorHeatmapProps) {
     return result
   }, [data])
 
-  if (!data.length) return null
+  if (!data.length) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center rounded-lg border border-dashed border-border">
+        <p className="text-sm text-muted-foreground">暂无板块热力图数据</p>
+      </div>
+    )
+  }
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/80 overflow-hidden">

@@ -983,7 +983,7 @@ export async function fetchHeatmapData(): Promise<HeatmapSector[]> {
 
     const topSectors = sectorData.data.diff
       .filter((item: any) => typeof item.f3 === 'number' && typeof item.f20 === 'number' && item.f20 > 0)
-      .slice(0, 25)
+      .slice(0, 20) // 减少板块数量到20个，提高速度
       .map((item: any) => ({
         name: item.f14 || '',
         code: String(item.f12 || ''),
@@ -991,37 +991,38 @@ export async function fetchHeatmapData(): Promise<HeatmapSector[]> {
         marketCap: item.f20,
       }))
 
-    const results: HeatmapSector[] = []
+    const results: HeatmapSector[] = await Promise.all(
+      topSectors.map(async (sector) => {
+        try {
+          const stockUrl = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=15&po=1&np=1&fltt=2&invt=2&fid=f20&fs=b:${sector.code}&fields=f3,f12,f14,f20&_=${Date.now()}`
+          const stockData = await jsonp<any>(stockUrl, 'cb')
 
-    for (const sector of topSectors) {
-      try {
-        const stockUrl = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=20&po=1&np=1&fltt=2&invt=2&fid=f20&fs=b:${sector.code}&fields=f3,f12,f14,f20&_=${Date.now()}`
-        const stockData = await jsonp<any>(stockUrl, 'cb')
+          if (stockData.rc !== 0 || !stockData.data?.diff) return null
 
-        if (stockData.rc !== 0 || !stockData.data?.diff) continue
+          const stocks: HeatmapStock[] = stockData.data.diff
+            .filter((item: any) => typeof item.f3 === 'number' && typeof item.f20 === 'number' && item.f20 > 0)
+            .map((item: any) => ({
+              name: item.f14 || '',
+              code: String(item.f12 || ''),
+              changePercent: item.f3,
+              marketCap: item.f20,
+            }))
 
-        const stocks: HeatmapStock[] = stockData.data.diff
-          .filter((item: any) => typeof item.f3 === 'number' && typeof item.f20 === 'number' && item.f20 > 0)
-          .map((item: any) => ({
-            name: item.f14 || '',
-            code: String(item.f12 || ''),
-            changePercent: item.f3,
-            marketCap: item.f20,
-          }))
-
-        if (stocks.length > 0) {
-          results.push({
-            name: sector.name,
-            code: sector.code,
-            changePercent: sector.changePercent,
-            marketCap: sector.marketCap,
-            stocks,
-          })
+          if (stocks.length > 0) {
+            return {
+              name: sector.name,
+              code: sector.code,
+              changePercent: sector.changePercent,
+              marketCap: sector.marketCap,
+              stocks,
+            }
+          }
+          return null
+        } catch {
+          return null
         }
-      } catch {
-        continue
-      }
-    }
+      })
+    ).then(res => res.filter((s): s is HeatmapSector => s !== null))
 
     return results
   } catch (err) {

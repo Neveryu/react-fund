@@ -54,14 +54,19 @@ export default function DailyMarketAnalysis({
   indices,
   aiAnalysis,
   isAiLoading,
+  isLoading = false,
 }: {
   data: DailyAnalysisData
   indices: IndexData[]
   aiAnalysis: DailyAiAnalysis | null
   isAiLoading: boolean
+  isLoading?: boolean
 }) {
-  const [tab, setTab] = useState<Tab>('industry')
+  const [tab, setTab] = useState<Tab>('analysis')
   const summary = buildMarketSummary(data, indices)
+
+  // 判断是否有数据
+  const hasData = data.industrySectors.length > 0 || data.conceptSectors.length > 0 || data.capitalFlow.length > 0
 
   const sentimentClass =
     aiAnalysis?.sentiment === 'bullish'
@@ -174,23 +179,38 @@ export default function DailyMarketAnalysis({
           ))}
         </div>
 
-        {tab === 'analysis' && (
-          <SectorAnalysis
-            industrySectors={data.industrySectors}
-            conceptSectors={data.conceptSectors}
-            capitalFlow={data.capitalFlow}
-          />
-        )}
-        {tab === 'heatmap' && (
-          <SectorHeatmap data={data.heatmapData} />
-        )}
-        {tab === 'industry' && (
-          <SectorRankingTable data={data.industrySectors} title="行业板块" />
-        )}
-        {tab === 'concept' && (
-          <SectorRankingTable data={data.conceptSectors} title="概念板块" />
-        )}
-        {tab === 'capital' && <CapitalFlowTable data={data.capitalFlow} />}
+        <div className="min-h-[400px]">
+          {isLoading && !hasData ? (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mb-4" />
+              <p className="text-sm">正在加载板块数据...</p>
+            </div>
+          ) : !hasData ? (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border border-dashed border-border rounded-lg">
+              <p className="text-sm">暂无板块数据，请稍后重试</p>
+            </div>
+          ) : (
+            <>
+              {tab === 'analysis' && (
+                <SectorAnalysis
+                  industrySectors={data.industrySectors}
+                  conceptSectors={data.conceptSectors}
+                  capitalFlow={data.capitalFlow}
+                />
+              )}
+              {tab === 'heatmap' && (
+                <SectorHeatmap data={data.heatmapData} />
+              )}
+              {tab === 'industry' && (
+                <SectorRankingTable data={data.industrySectors} title="行业板块" />
+              )}
+              {tab === 'concept' && (
+                <SectorRankingTable data={data.conceptSectors} title="概念板块" />
+              )}
+              {tab === 'capital' && <CapitalFlowTable data={data.capitalFlow} />}
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
