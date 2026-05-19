@@ -15,37 +15,31 @@ export default function IndexCard({
     <div
       onClick={() => onClick?.(data)}
       className={cn(
-        'flex items-center justify-between gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-secondary/50',
-        onClick && 'cursor-pointer'
+        'flex flex-col items-center justify-center gap-1.5 p-2.5 rounded-lg transition-all hover:scale-105',
+        onClick && 'cursor-pointer',
+        isPositive ? 'bg-success/5 hover:bg-success/10' : 'bg-destructive/5 hover:bg-destructive/10'
       )}
+      title={`${data.name} ${data.code}`}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-lg shrink-0 leading-tight">{data.flag}</span>
-        <div className="min-w-0">
-          <h3 className="text-sm font-medium truncate">{data.name}</h3>
-          <p className="text-xs text-muted-foreground">{data.code}</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-        <div className="text-right">
-          <p className="text-sm sm:text-base font-bold tabular-nums">{data.value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          <p className={cn('text-xs tabular-nums', isPositive ? 'text-success' : 'text-destructive')}>
-            {isPositive ? '+' : ''}{data.change.toFixed(2)}
-          </p>
-        </div>
-        <span
-          className={cn(
-            'text-sm font-semibold tabular-nums px-1.5 py-0.5 rounded',
-            isPositive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
-          )}
-        >
-          {isPositive ? '+' : ''}{data.changePercent.toFixed(2)}%
-        </span>
-        <div className="w-24 h-10 opacity-70 hidden sm:block">
-          {data.sparkline && data.sparkline.length >= 2 && (
-            <MiniChart data={data.sparkline} positive={isPositive} id={data.code} width={96} height={40} />
-          )}
-        </div>
+      <span className="text-base sm:text-lg leading-tight">{data.flag}</span>
+      <h3 className="text-[10px] sm:text-xs font-medium text-center line-clamp-1 max-w-[80px]">
+        {data.name}
+      </h3>
+      <p className="text-[11px] sm:text-xs font-bold tabular-nums">
+        {data.value.toLocaleString('zh-CN', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
+      </p>
+      <span
+        className={cn(
+          'text-[10px] sm:text-xs font-semibold tabular-nums px-1.5 py-0.5 rounded',
+          isPositive ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive'
+        )}
+      >
+        {isPositive ? '+' : ''}{data.changePercent.toFixed(2)}%
+      </span>
+      <div className="w-16 h-8 opacity-60">
+        {data.sparkline && data.sparkline.length >= 2 && (
+          <MiniChart data={data.sparkline} positive={isPositive} id={data.code} width={64} height={32} />
+        )}
       </div>
     </div>
   )
