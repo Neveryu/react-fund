@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import type { HeatmapSector, HeatmapStock } from '@/lib/data'
 
@@ -127,11 +127,33 @@ function formatMarketCap(v: number): string {
   return (v / 1e4).toFixed(0) + '万'
 }
 
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`)
+    setIsMobile(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [breakpoint])
+  return isMobile
+}
+
 export default function SectorHeatmap({ data }: SectorHeatmapProps) {
+  const isMobile = useIsMobile()
+
   const layout = useMemo(() => {
     if (!data.length) return []
 
-    const sectorItems = data.map((s) => ({ sector: s, value: s.marketCap }))
+    const maxSectors = isMobile ? 10 : 25
+    const maxStocks = isMobile ? 5 : 20
+
+    const filteredData = data.slice(0, maxSectors).map((s) => ({
+      ...s,
+      stocks: s.stocks.slice(0, maxStocks),
+    }))
+
+    const sectorItems = filteredData.map((s) => ({ sector: s, value: s.marketCap }))
     const sectorRects = treemap(sectorItems, 0, 0, 100, 100)
 
     const result: {
@@ -157,7 +179,7 @@ export default function SectorHeatmap({ data }: SectorHeatmapProps) {
     }
 
     return result
-  }, [data])
+  }, [data, isMobile])
 
   if (!data.length) {
     return (
@@ -167,15 +189,19 @@ export default function SectorHeatmap({ data }: SectorHeatmapProps) {
     )
   }
 
+  const nameThreshold = isMobile ? 2.5 : 0.8
+  const percentThreshold = isMobile ? 1.5 : 0.5
+  const sectorLabelThreshold = isMobile ? 5 : 2
+
   return (
     <div className="rounded-xl border border-border/50 bg-card/80 overflow-hidden">
       {/* 比例尺 */}
-      <div className="flex items-center justify-end gap-1.5 px-4 py-2 border-b border-border/50">
+      <div className="flex items-center justify-end gap-1 sm:gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 border-b border-border/50 overflow-x-auto">
         {[-5, -3, -1, 0, 1, 3, 5].map((v) => {
           const { bg } = getColor(v)
           return (
-            <span key={v} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <span className={cn('inline-block w-4 h-4 rounded', bg)} />
+            <span key={v} className="flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-[10px] text-muted-foreground shrink-0">
+              <span className={cn('inline-block w-3 h-3 sm:w-4 sm:h-4 rounded', bg)} />
               <span>{v}%</span>
             </span>
           )
@@ -183,21 +209,25 @@ export default function SectorHeatmap({ data }: SectorHeatmapProps) {
       </div>
 
       {/* Treemap */}
-      <div className="p-2">
-        <div className="relative w-full" style={{ paddingBottom: '65%' }}>
+      <div className="p-1.5 sm:p-2">
+        <div className="relative w-full" style={{ paddingBottom: isMobile ? '120%' : '65%' }}>
           {layout.map((group) => {
             const sectorArea = group.rect.w * group.rect.h
-            const showSectorLabel = sectorArea > 2
+            const showSectorLabel = sectorArea > sectorLabelThreshold
 
             return (
               <div key={group.sector.code}>
                 {group.stocks.map((item) => {
                   const { bg, text } = getColor(item.stock.changePercent)
                   const area = item.rect.w * item.rect.h
-                  const showName = area > 0.8
-                  const showPercent = area > 0.5
-                  const fontSize = area > 6 ? 'text-sm' : area > 2 ? 'text-xs' : 'text-[10px]'
-                  const percentSize = area > 6 ? 'text-xs' : area > 2 ? 'text-[10px]' : 'text-[9px]'
+                  const showName = area > nameThreshold
+                  const showPercent = area > percentThreshold
+                  const fontSize = isMobile
+                    ? area > 10 ? 'text-xs' : area > 4 ? 'text-[10px]' : 'text-[8px]'
+                    : area > 6 ? 'text-sm' : area > 2 ? 'text-xs' : 'text-[10px]'
+                  const percentSize = isMobile
+                    ? area > 10 ? 'text-[10px]' : area > 4 ? 'text-[9px]' : 'text-[8px]'
+                    : area > 6 ? 'text-xs' : area > 2 ? 'text-[10px]' : 'text-[9px]'
 
                   return (
                     <div
@@ -238,7 +268,10 @@ export default function SectorHeatmap({ data }: SectorHeatmapProps) {
                       width: `${group.rect.w}%`,
                     }}
                   >
-                    <span className="text-[10px] font-bold text-white/90 bg-black/30 px-1.5 py-0.5 rounded-br inline-block backdrop-blur-[1px]">
+                    <span className={cn(
+                      'font-bold text-white/90 bg-black/30 px-1 sm:px-1.5 py-0.5 rounded-br inline-block backdrop-blur-[1px]',
+                      isMobile ? 'text-[9px]' : 'text-[10px]'
+                    )}>
                       {group.sector.name}
                     </span>
                   </div>
