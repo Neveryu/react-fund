@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import type { FundRankingData } from '@/lib/data'
 import { ArrowUpDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
-type SortKey = 'dayChange' | 'weekChange' | 'monthChange' | 'threeMonth' | 'sixMonth' | 'oneYear' | 'twoYear'
+type SortKey = 'dayChange' | 'weekChange' | 'monthChange' | 'threeMonth' | 'sixMonth' | 'oneYear'
 
 export default function FundRankingTable({ data, onSelectFund }: { data: FundRankingData[]; onSelectFund?: (fund: FundRankingData) => void }) {
   const [sortKey, setSortKey] = useState<SortKey>('dayChange')
@@ -118,14 +118,7 @@ export default function FundRankingTable({ data, onSelectFund }: { data: FundRan
                   近1年 <SortIcon column="oneYear" />
                 </span>
               </th>
-              <th
-                className="text-right p-3 text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors hidden xl:table-cell"
-                onClick={() => toggleSort('twoYear')}
-              >
-                <span className="inline-flex items-center gap-1">
-                  近2年 <SortIcon column="twoYear" />
-                </span>
-              </th>
+
             </tr>
           </thead>
           <tbody>
@@ -178,9 +171,7 @@ export default function FundRankingTable({ data, onSelectFund }: { data: FundRan
                 <td className="text-right p-3 hidden xl:table-cell">
                   {renderChange(fund.oneYear)}
                 </td>
-                <td className="text-right p-3 hidden xl:table-cell">
-                  {renderChange(fund.twoYear)}
-                </td>
+
               </tr>
             ))}
           </tbody>

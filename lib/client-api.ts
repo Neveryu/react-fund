@@ -613,43 +613,60 @@ export async function fetchFundDetail(code: string): Promise<FundDetail | null> 
 /* ── Fund Ranking ───────────────────────────── */
 
 export async function fetchFundRanking(): Promise<FundRankingData[]> {
-  // sc=rzdf: 按日涨幅排序; 不带日期范围则自动取最近交易日
-  const url = `https://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=all&rs=&gs=0&sc=rzdf&st=desc&qdii=&tabSubtype=,,,,,&pi=1&pn=20&dx=1&v=${Date.now()}`
+  try {
+    // 按基金类型分别请求 push2 API，直接从请求参数确定类型，不依赖名称推断
+    // 这样能准确分类，避免基金简称不含类型关键词导致全部归为"其他"
+    const boards = [
+      { fs: 'b:mk0021', type: '股票型' },
+      { fs: 'b:mk0022', type: '混合型' },
+      { fs: 'b:mk0023', type: '指数型' },
+      { fs: 'b:mk0024', type: 'QDII' },
+    ]
 
-  let itemStrings: string[] = []
+    const results = await Promise.all(
+      boards.map(async ({ fs, type }) => {
+        const url = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=20&po=1&np=1&fltt=2&invt=2&fid=f3&fs=${fs}&fields=f2,f3,f12,f14,f22,f23,f24,f25&_=${Date.now()}`
+        const data = await jsonp<any>(url, 'cb')
+        if (data.rc !== 0 || !data.data?.diff) return []
+        return data.data.diff
+          .filter((item: any) => typeof item.f2 === 'number' && item.f2 > 0)
+          .map((item: any) => ({
+            code: String(item.f12 || ''),
+            name: item.f14 || '',
+            type,
+            nav: typeof item.f2 === 'number' ? item.f2 : 0,
+            navDate: '',
+            dayChange: typeof item.f3 === 'number' ? item.f3 : 0,
+            weekChange: typeof item.f22 === 'number' ? item.f22 : 0,
+            monthChange: typeof item.f23 === 'number' ? item.f23 : 0,
+            threeMonth: typeof item.f24 === 'number' ? item.f24 : 0,
+            sixMonth: typeof item.f25 === 'number' ? item.f25 : 0,
+            oneYear: 0,
+            twoYear: 0,
+          }))
+      })
+    )
 
-  // 使用 script 标签方式（不受 CORS 限制）
-  ;(window as any).rankData = undefined
-  const data = await loadScriptVar<{ datas: string[] }>(url, 'rankData', 8000)
-  if (data?.datas?.length) {
-    itemStrings = data.datas
+    const allFunds = results.flat()
+
+    // push2 基金接口不提供近1年/近2年收益率，通过 pingzhongdata 补全
+    // 按日涨幅排序后取前15只，逐一加载（loadScriptVar 使用全局变量，须串行）
+    allFunds.sort((a, b) => Math.abs(b.dayChange) - Math.abs(a.dayChange))
+    const limit = Math.min(15, allFunds.length)
+    for (let i = 0; i < limit; i++) {
+      try {
+        const history = await fetchFundHistory(allFunds[i].code)
+        if (history?.returns) {
+          allFunds[i].oneYear = history.returns.oneYear
+        }
+      } catch { /* 忽略单只基金的加载失败 */ }
+    }
+
+    return allFunds.slice(0, 30)
+  } catch (err) {
+    console.error('[fetchFundRanking] error:', err)
+    return []
   }
-
-  if (!itemStrings.length) return []
-
-  const funds = itemStrings
-    .map((item: string) => {
-      const p = item.split(',')
-      const name = p[1] || ''
-      return {
-        code: p[0] || '',
-        name,
-        type: inferFundType(name),
-        nav: parseFloat(p[4]) || 0,
-        navDate: p[3] || '',
-        dayChange: parseFloat(p[6]) || 0,
-        weekChange: parseFloat(p[7]) || 0,
-        monthChange: parseFloat(p[8]) || 0,
-        threeMonth: parseFloat(p[9]) || 0,
-        sixMonth: parseFloat(p[10]) || 0,
-        oneYear: parseFloat(p[11]) || 0,
-        twoYear: parseFloat(p[12]) || 0,
-      }
-    })
-    .filter((f: FundRankingData) => f.code && f.nav > 0)
-
-  ;(window as any).rankData = undefined
-  return funds
 }
 
 /* ── Daily Market Analysis ─────────────────── */

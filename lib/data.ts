@@ -118,6 +118,7 @@ export interface FundData {
     threeMonth: number
     sixMonth: number
     oneYear: number
+    twoYear?: number
   }
   sparkline?: number[]
 }
