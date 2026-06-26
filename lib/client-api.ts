@@ -669,6 +669,54 @@ export async function fetchFundRanking(): Promise<FundRankingData[]> {
   }
 }
 
+/** 获取昨日场外基金涨幅前20排行榜 */
+export async function fetchYesterdayFundRanking(): Promise<FundRankingData[]> {
+  try {
+    // 按基金类型分别请求 push2 API，fid=f4 表示按昨日涨幅排序
+    const boards = [
+      { fs: 'b:mk0021', type: '股票型' },
+      { fs: 'b:mk0022', type: '混合型' },
+      { fs: 'b:mk0023', type: '指数型' },
+      { fs: 'b:mk0024', type: 'QDII' },
+    ]
+
+    const results = await Promise.all(
+      boards.map(async ({ fs, type }) => {
+        // fid=f4 表示按昨日涨幅排序，pz=20 取前20
+        const url = `https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=20&po=1&np=1&fltt=2&invt=2&fid=f4&fs=${fs}&fields=f2,f3,f4,f12,f14,f22,f23,f24,f25&_=${Date.now()}`
+        const data = await jsonp<any>(url, 'cb')
+        if (data.rc !== 0 || !data.data?.diff) return []
+        return data.data.diff
+          .filter((item: any) => typeof item.f2 === 'number' && item.f2 > 0)
+          .map((item: any) => ({
+            code: String(item.f12 || ''),
+            name: item.f14 || '',
+            type,
+            nav: typeof item.f2 === 'number' ? item.f2 : 0,
+            navDate: '',
+            dayChange: typeof item.f4 === 'number' ? item.f4 : 0, // f4 是昨日涨幅
+            weekChange: typeof item.f22 === 'number' ? item.f22 : 0,
+            monthChange: typeof item.f23 === 'number' ? item.f23 : 0,
+            threeMonth: typeof item.f24 === 'number' ? item.f24 : 0,
+            sixMonth: typeof item.f25 === 'number' ? item.f25 : 0,
+            oneYear: 0,
+            twoYear: 0,
+          }))
+      })
+    )
+
+    const allFunds = results.flat()
+
+    // 按昨日涨幅排序，取前20
+    allFunds.sort((a, b) => b.dayChange - a.dayChange)
+
+    return allFunds.slice(0, 20)
+  } catch (err) {
+    console.error('[fetchYesterdayFundRanking] error:', err)
+    return []
+  }
+}
+
 /* ── Daily Market Analysis ─────────────────── */
 
 export async function fetchMarketStats(): Promise<MarketStatsData | null> {

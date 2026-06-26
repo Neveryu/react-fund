@@ -6,8 +6,21 @@ import type { FundRankingData } from '@/lib/data'
 import { ArrowUpDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 type SortKey = 'dayChange' | 'weekChange' | 'monthChange' | 'threeMonth' | 'sixMonth' | 'oneYear'
+type RankingTab = 'today' | 'yesterday'
 
-export default function FundRankingTable({ data, onSelectFund }: { data: FundRankingData[]; onSelectFund?: (fund: FundRankingData) => void }) {
+interface FundRankingTableProps {
+  data: FundRankingData[]
+  onSelectFund?: (fund: FundRankingData) => void
+  activeTab?: RankingTab
+  onTabChange?: (tab: RankingTab) => void
+}
+
+export default function FundRankingTable({
+  data,
+  onSelectFund,
+  activeTab = 'today',
+  onTabChange,
+}: FundRankingTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('dayChange')
   const [sortDesc, setSortDesc] = useState(true)
 
@@ -60,6 +73,38 @@ export default function FundRankingTable({ data, onSelectFund }: { data: FundRan
 
   return (
     <div className="rounded-lg border border-border overflow-hidden">
+      {/* 切换按钮 */}
+      {onTabChange && (
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-secondary/30">
+          <span className="text-sm font-medium text-muted-foreground">
+            {activeTab === 'today' ? '今日排行' : '昨日排行'}
+          </span>
+          <div className="flex rounded-lg border border-border/50 overflow-hidden text-xs">
+            <button
+              onClick={() => onTabChange('today')}
+              className={cn(
+                'px-3 py-1.5 transition-colors',
+                activeTab === 'today'
+                  ? 'bg-primary/15 text-primary font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+              )}
+            >
+              今日排行
+            </button>
+            <button
+              onClick={() => onTabChange('yesterday')}
+              className={cn(
+                'px-3 py-1.5 transition-colors',
+                activeTab === 'yesterday'
+                  ? 'bg-primary/15 text-primary font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+              )}
+            >
+              昨日排行
+            </button>
+          </div>
+        </div>
+      )}
       <div className="overflow-x-auto scrollbar-thin">
         <table className="w-full text-sm">
           <thead>
@@ -75,7 +120,7 @@ export default function FundRankingTable({ data, onSelectFund }: { data: FundRan
                 onClick={() => toggleSort('dayChange')}
               >
                 <span className="inline-flex items-center gap-1">
-                  日涨幅 <SortIcon column="dayChange" />
+                  {activeTab === 'yesterday' ? '昨日涨幅' : '日涨幅'} <SortIcon column="dayChange" />
                 </span>
               </th>
               <th
