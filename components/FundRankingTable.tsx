@@ -141,7 +141,7 @@ export default function FundRankingTable({
                 onClick={() => toggleSort('dayChange')}
               >
                 <span className="inline-flex items-center gap-1">
-                  {activeTab === 'yesterday' ? '昨日涨幅' : '日涨幅'} <SortIcon column="dayChange" />
+                  日涨幅 <SortIcon column="dayChange" />
                 </span>
               </th>
               <th
