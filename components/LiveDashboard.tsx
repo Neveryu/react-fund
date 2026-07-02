@@ -34,7 +34,6 @@ import {
   fetchFundsByCodes,
   fetchStocksByCodes,
   fetchFundRanking,
-  fetchYesterdayFundRanking,
   fetchFundDetail,
   fetchDailyAnalysis,
   generateDailyAiAnalysis,
@@ -51,7 +50,6 @@ export default function LiveDashboard() {
   const [watchlistStocks, setWatchlistStocks] = useState<StockData[]>([])
   const [funds, setFunds] = useState<FundData[]>(mockFunds)
   const [fundRanking, setFundRanking] = useState<FundRankingData[]>([])
-  const [yesterdayFundRanking, setYesterdayFundRanking] = useState<FundRankingData[]>([])
   const [fundRankingTab, setFundRankingTab] = useState<'today' | 'yesterday'>('today')
   const [dailyAnalysis, setDailyAnalysis] = useState<DailyAnalysisData>({
     marketStats: null,
@@ -93,7 +91,7 @@ export default function LiveDashboard() {
   const fetchAllData = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const [indicesRes, hotStocksRes, watchlistStocksRes, fundsRes, rankingRes, yesterdayRankingRes, dailyRes] =
+      const [indicesRes, hotStocksRes, watchlistStocksRes, fundsRes, rankingRes, dailyRes] =
         await Promise.allSettled([
           fetchIndices(),
           fetchHotStocks(),
@@ -104,7 +102,6 @@ export default function LiveDashboard() {
             ? fetchFundsByCodes(fundList)
             : Promise.resolve([] as FundData[]),
           fetchFundRanking(),
-          fetchYesterdayFundRanking(),
           fetchDailyAnalysis(),
         ])
 
@@ -123,9 +120,6 @@ export default function LiveDashboard() {
       }
       if (rankingRes.status === 'fulfilled' && rankingRes.value?.length) {
         setFundRanking(rankingRes.value)
-      }
-      if (yesterdayRankingRes.status === 'fulfilled' && yesterdayRankingRes.value?.length) {
-        setYesterdayFundRanking(yesterdayRankingRes.value)
       }
       if (dailyRes.status === 'fulfilled') {
         setDailyAnalysis(dailyRes.value)
@@ -315,7 +309,7 @@ export default function LiveDashboard() {
           />
           <div className="mt-4">
             <FundRankingTable
-              data={fundRankingTab === 'today' ? fundRanking : yesterdayFundRanking}
+              data={fundRanking}
               onSelectFund={handleSelectFund}
               activeTab={fundRankingTab}
               onTabChange={setFundRankingTab}

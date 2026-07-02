@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { FundRankingData } from '@/lib/data'
-import { ArrowUpDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { ArrowUpDown, ArrowUpRight, ArrowDownRight, Info } from 'lucide-react'
 
 type SortKey = 'dayChange' | 'weekChange' | 'monthChange' | 'threeMonth' | 'sixMonth' | 'oneYear'
 type RankingTab = 'today' | 'yesterday'
@@ -24,7 +24,7 @@ export default function FundRankingTable({
   const [sortKey, setSortKey] = useState<SortKey>('dayChange')
   const [sortDesc, setSortDesc] = useState(true)
 
-  if (!data.length) {
+  if (!data.length && activeTab !== 'yesterday') {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center rounded-lg border border-dashed border-border">
         <p className="text-sm text-muted-foreground">暂无基金排行数据</p>
@@ -32,11 +32,13 @@ export default function FundRankingTable({
     )
   }
 
-  const sorted = [...data].sort((a, b) => {
-    const aVal = a[sortKey]
-    const bVal = b[sortKey]
-    return sortDesc ? bVal - aVal : aVal - bVal
-  })
+  const sorted = activeTab === 'yesterday'
+    ? []
+    : [...data].sort((a, b) => {
+      const aVal = a[sortKey]
+      const bVal = b[sortKey]
+      return sortDesc ? bVal - aVal : aVal - bVal
+    })
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -105,7 +107,26 @@ export default function FundRankingTable({
           </div>
         </div>
       )}
-      <div className="overflow-x-auto scrollbar-thin">
+      {activeTab === 'yesterday' ? (
+        <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+          <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Info className="h-5 w-5" />
+          </div>
+          <h3 className="text-sm font-semibold text-foreground">昨日排行暂不展示</h3>
+          <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+            当前静态部署环境无法稳定访问东方财富真实基金净值增长排行接口。为避免使用今日排行或候选池计算结果造成误导，昨日排行已暂时关闭。
+          </p>
+          <a
+            href="https://fund.eastmoney.com/data/fundranking.html"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 text-sm font-medium text-primary hover:underline"
+          >
+            查看东方财富基金排行
+          </a>
+        </div>
+      ) : (
+        <div className="overflow-x-auto scrollbar-thin">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-secondary/50">
@@ -222,6 +243,7 @@ export default function FundRankingTable({
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }
