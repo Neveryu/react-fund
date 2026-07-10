@@ -80,15 +80,15 @@ export default function CapitalFlowTable({ data }: { data: SectorCapitalFlowData
   }
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
+    <div className="rounded-xl border border-border/60 bg-card/60 overflow-hidden shadow-sm">
       <div className="overflow-x-auto scrollbar-thin">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm lg:table-fixed">
           <thead>
-            <tr className="bg-secondary/50">
-              <th className="text-left p-3 text-muted-foreground font-medium w-12">排名</th>
-              <th className="text-left p-3 text-muted-foreground font-medium">板块名称</th>
+            <tr className="h-9 bg-secondary/40 border-b border-border/50">
+              <th className="text-left px-3 py-2 text-xs text-muted-foreground font-medium w-14">排名</th>
+              <th className="text-left px-3 py-2 text-xs text-muted-foreground font-medium lg:w-[20%]">板块名称</th>
               <th
-                className="text-right p-3 text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors"
+                className="text-right px-3 py-2 text-xs text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors whitespace-nowrap"
                 onClick={() => toggleSort('changePercent')}
               >
                 <span className="inline-flex items-center gap-1">
@@ -96,20 +96,20 @@ export default function CapitalFlowTable({ data }: { data: SectorCapitalFlowData
                 </span>
               </th>
               <th
-                className="text-right p-3 text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors"
+                className="text-right px-3 py-2 text-xs text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors whitespace-nowrap"
                 onClick={() => toggleSort('mainNetInflow')}
               >
                 <span className="inline-flex items-center gap-1">
                   主力净流入 <SortIcon column="mainNetInflow" />
                 </span>
               </th>
-              <th className="text-right p-3 text-muted-foreground font-medium hidden md:table-cell">
+              <th className="text-right px-3 py-2 text-xs text-muted-foreground font-medium hidden md:table-cell whitespace-nowrap">
                 主力净占比
               </th>
-              <th className="text-right p-3 text-muted-foreground font-medium hidden lg:table-cell">
+              <th className="text-right px-3 py-2 text-xs text-muted-foreground font-medium hidden lg:table-cell whitespace-nowrap">
                 超大单
               </th>
-              <th className="text-right p-3 text-muted-foreground font-medium hidden lg:table-cell">
+              <th className="text-right px-3 py-2 text-xs text-muted-foreground font-medium hidden lg:table-cell whitespace-nowrap">
                 大单
               </th>
             </tr>
@@ -119,11 +119,11 @@ export default function CapitalFlowTable({ data }: { data: SectorCapitalFlowData
               <tr
                 key={item.code}
                 className={cn(
-                  'border-t border-border/50 transition-colors hover:bg-secondary/30',
+                  'h-11 border-t border-border/40 transition-colors hover:bg-secondary/30',
                   i % 2 === 0 ? 'bg-transparent' : 'bg-secondary/10'
                 )}
               >
-                <td className="p-3">
+                <td className="px-3 py-2">
                   <span
                     className={cn(
                       'inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold',
@@ -135,18 +135,18 @@ export default function CapitalFlowTable({ data }: { data: SectorCapitalFlowData
                     {i + 1}
                   </span>
                 </td>
-                <td className="p-3">
-                  <div className="font-medium">{item.name}</div>
+                <td className="px-3 py-2">
+                  <div className="font-medium truncate">{item.name}</div>
                 </td>
-                <td className="text-right p-3">{renderChange(item.changePercent)}</td>
-                <td className="text-right p-3">{renderFlow(item.mainNetInflow)}</td>
-                <td className="text-right p-3 hidden md:table-cell">
+                <td className="text-right px-3 py-2 whitespace-nowrap">{renderChange(item.changePercent)}</td>
+                <td className="text-right px-3 py-2 whitespace-nowrap">{renderFlow(item.mainNetInflow)}</td>
+                <td className="text-right px-3 py-2 hidden md:table-cell whitespace-nowrap">
                   {renderChange(item.mainNetRatio)}
                 </td>
-                <td className="text-right p-3 hidden lg:table-cell">
+                <td className="text-right px-3 py-2 hidden lg:table-cell whitespace-nowrap">
                   {renderFlow(item.superLargeNet)}
                 </td>
-                <td className="text-right p-3 hidden lg:table-cell">
+                <td className="text-right px-3 py-2 hidden lg:table-cell whitespace-nowrap">
                   {renderFlow(item.largeNet)}
                 </td>
               </tr>

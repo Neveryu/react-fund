@@ -161,17 +161,17 @@ export default function DailyMarketAnalysis({
       {/* 两市成交额对比 */}
       <TurnoverComparison data={data.turnoverTrend} />
 
-      <div className="space-y-4">
-        <div className="flex rounded-lg border border-border/50 overflow-hidden text-xs w-fit">
+      <div className="space-y-3">
+        <div className="flex w-fit overflow-hidden rounded-xl border border-border/50 bg-secondary/20 p-1 text-xs shadow-sm">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={cn(
-                'px-3 py-1.5 transition-colors',
+                'rounded-lg px-3 py-1.5 transition-colors lg:px-4',
                 tab === t.key
-                  ? 'bg-primary/15 text-primary font-medium'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+                  ? 'bg-background text-primary font-medium shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
               )}
             >
               {t.label}
@@ -179,7 +179,7 @@ export default function DailyMarketAnalysis({
           ))}
         </div>
 
-        <div className="min-h-[400px]">
+        <div>
           {isLoading && !hasData ? (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mb-4" />

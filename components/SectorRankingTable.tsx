@@ -48,25 +48,25 @@ export default function SectorRankingTable({ data, title }: { data: SectorData[]
   }
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
+    <div className="rounded-xl border border-border/60 bg-card/60 overflow-hidden shadow-sm">
       <div className="overflow-x-auto scrollbar-thin">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm md:table-fixed">
           <thead>
-            <tr className="bg-secondary/50">
-              <th className="text-left p-3 text-muted-foreground font-medium w-12">排名</th>
-              <th className="text-left p-3 text-muted-foreground font-medium">板块名称</th>
+            <tr className="h-9 bg-secondary/40 border-b border-border/50">
+              <th className="text-left px-3 py-2 text-xs text-muted-foreground font-medium w-14">排名</th>
+              <th className="text-left px-3 py-2 text-xs text-muted-foreground font-medium md:w-[28%]">板块名称</th>
               <th
-                className="text-right p-3 text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors"
+                className="text-right px-3 py-2 text-xs text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors whitespace-nowrap md:w-[18%]"
                 onClick={toggleSort}
               >
                 <span className="inline-flex items-center gap-1">
                   涨跌幅 <SortIcon />
                 </span>
               </th>
-              <th className="text-right p-3 text-muted-foreground font-medium hidden md:table-cell">
+              <th className="text-right px-3 py-2 text-xs text-muted-foreground font-medium hidden md:table-cell whitespace-nowrap md:w-[22%]">
                 涨/跌家数
               </th>
-              <th className="text-left p-3 text-muted-foreground font-medium hidden sm:table-cell">
+              <th className="text-left px-3 py-2 text-xs text-muted-foreground font-medium hidden sm:table-cell">
                 领涨股
               </th>
             </tr>
@@ -76,11 +76,11 @@ export default function SectorRankingTable({ data, title }: { data: SectorData[]
               <tr
                 key={sector.code}
                 className={cn(
-                  'border-t border-border/50 transition-colors hover:bg-secondary/30',
+                  'h-11 border-t border-border/40 transition-colors hover:bg-secondary/30',
                   i % 2 === 0 ? 'bg-transparent' : 'bg-secondary/10'
                 )}
               >
-                <td className="p-3">
+                <td className="px-3 py-2">
                   <span
                     className={cn(
                       'inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold',
@@ -92,17 +92,17 @@ export default function SectorRankingTable({ data, title }: { data: SectorData[]
                     {i + 1}
                   </span>
                 </td>
-                <td className="p-3">
-                  <div className="font-medium">{sector.name}</div>
+                <td className="px-3 py-2">
+                  <div className="font-medium truncate">{sector.name}</div>
                 </td>
-                <td className="text-right p-3">{renderChange(sector.changePercent)}</td>
-                <td className="text-right p-3 hidden md:table-cell">
+                <td className="text-right px-3 py-2 whitespace-nowrap">{renderChange(sector.changePercent)}</td>
+                <td className="text-right px-3 py-2 hidden md:table-cell whitespace-nowrap">
                   <span className="text-success tabular-nums">↑{sector.advancers}</span>
                   <span className="text-muted-foreground mx-1">/</span>
                   <span className="text-destructive tabular-nums">↓{sector.decliners}</span>
                 </td>
-                <td className="p-3 hidden sm:table-cell">
-                  <span className="text-xs text-muted-foreground">{sector.leadStock}</span>
+                <td className="px-3 py-2 hidden sm:table-cell">
+                  <span className="block truncate text-xs text-muted-foreground">{sector.leadStock}</span>
                 </td>
               </tr>
             ))}

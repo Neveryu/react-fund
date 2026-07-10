@@ -22,8 +22,8 @@ export default function SectorAnalysis({ industrySectors, conceptSectors, capita
   const topIndustries = [...industrySectors].sort((a, b) => b.changePercent - a.changePercent).slice(0, 5)
   const bottomIndustries = [...industrySectors].sort((a, b) => a.changePercent - b.changePercent).slice(0, 3)
   const topConcepts = [...conceptSectors].sort((a, b) => b.changePercent - a.changePercent).slice(0, 5)
-  const topCapitalInflow = [...capitalFlow].sort((a, b) => b.mainNetInflow - a.mainNetInflow).slice(0, 5)
-  const topCapitalOutflow = [...capitalFlow].sort((a, b) => a.mainNetInflow - b.mainNetInflow).slice(0, 3)
+  const topCapitalInflow = [...capitalFlow].sort((a, b) => b.mainNetInflow - a.mainNetInflow).slice(0, 3)
+  const topCapitalOutflow = [...capitalFlow].sort((a, b) => a.mainNetInflow - b.mainNetInflow).slice(0, 2)
 
   const formatTurnover = (value: number): string => {
     if (Math.abs(value) >= 1e12) {
@@ -51,17 +51,17 @@ export default function SectorAnalysis({ industrySectors, conceptSectors, capita
   }
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-4 xl:grid-cols-3">
       {/* 行业板块领涨榜 */}
-      <div className="rounded-lg border border-border overflow-hidden">
-        <div className="px-4 py-3 bg-secondary/50 flex items-center gap-2">
+      <div className="rounded-xl border border-border/60 bg-card/60 overflow-hidden shadow-sm">
+        <div className="h-10 px-3.5 bg-secondary/40 flex items-center gap-2 border-b border-border/40">
           <TrendingUp className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-semibold">行业板块领涨榜</h3>
         </div>
         <div className="divide-y divide-border/50">
           {topIndustries.map((sector, i) => (
-            <div key={sector.code} className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-3 min-w-0">
+            <div key={sector.code} className="flex min-h-12 items-center justify-between px-3.5 py-2 hover:bg-secondary/20 transition-colors">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <span className={cn(
                   'inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold shrink-0',
                   i === 0 ? 'bg-red-500/20 text-red-500' : i === 1 ? 'bg-orange-500/20 text-orange-500' : 'bg-secondary text-muted-foreground'
@@ -85,15 +85,15 @@ export default function SectorAnalysis({ industrySectors, conceptSectors, capita
 
       {/* 概念板块领涨榜 */}
       {conceptSectors.length > 0 && (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <div className="px-4 py-3 bg-secondary/50 flex items-center gap-2">
+        <div className="rounded-xl border border-border/60 bg-card/60 overflow-hidden shadow-sm">
+          <div className="h-10 px-3.5 bg-secondary/40 flex items-center gap-2 border-b border-border/40">
             <BarChart3 className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-semibold">概念板块领涨榜</h3>
           </div>
           <div className="divide-y divide-border/50">
             {topConcepts.map((sector, i) => (
-              <div key={sector.code} className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-3 min-w-0">
+              <div key={sector.code} className="flex min-h-12 items-center justify-between px-3.5 py-2 hover:bg-secondary/20 transition-colors">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <span className={cn(
                     'inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold shrink-0',
                     i === 0 ? 'bg-red-500/20 text-red-500' : i === 1 ? 'bg-orange-500/20 text-orange-500' : 'bg-secondary text-muted-foreground'
@@ -117,18 +117,18 @@ export default function SectorAnalysis({ industrySectors, conceptSectors, capita
       )}
 
       {/* 资金流向分析 */}
-      <div className="rounded-lg border border-border overflow-hidden">
-        <div className="px-4 py-3 bg-secondary/50 flex items-center gap-2">
+      <div className="rounded-xl border border-border/60 bg-card/60 overflow-hidden shadow-sm">
+        <div className="h-10 px-3.5 bg-secondary/40 flex items-center gap-2 border-b border-border/40">
           <DollarSign className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-semibold">主力资金流向</h3>
         </div>
         
         {/* 净流入前5 */}
         <div className="border-b border-border/50">
-          <div className="px-4 py-2 text-xs font-medium text-success bg-success/5">净流入板块</div>
+          <div className="px-3.5 py-1.5 text-xs font-medium text-success bg-success/5">净流入板块</div>
           <div className="divide-y divide-border/50">
             {topCapitalInflow.map((flow) => (
-              <div key={flow.code} className="flex items-center justify-between px-4 py-3">
+              <div key={flow.code} className="flex min-h-12 items-center justify-between px-3.5 py-2 hover:bg-secondary/20 transition-colors">
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">{flow.name}</div>
                   <div className="text-xs text-muted-foreground">
@@ -146,10 +146,10 @@ export default function SectorAnalysis({ industrySectors, conceptSectors, capita
         {/* 净流出前3 */}
         {topCapitalOutflow.length > 0 && (
           <div>
-            <div className="px-4 py-2 text-xs font-medium text-destructive bg-destructive/5">净流出板块</div>
+            <div className="px-3.5 py-1.5 text-xs font-medium text-destructive bg-destructive/5">净流出板块</div>
             <div className="divide-y divide-border/50">
               {topCapitalOutflow.map((flow) => (
-                <div key={flow.code} className="flex items-center justify-between px-4 py-3">
+                <div key={flow.code} className="flex min-h-12 items-center justify-between px-3.5 py-2 hover:bg-secondary/20 transition-colors">
                   <div className="min-w-0">
                     <div className="text-sm font-medium truncate">{flow.name}</div>
                     <div className="text-xs text-muted-foreground">
@@ -168,7 +168,7 @@ export default function SectorAnalysis({ industrySectors, conceptSectors, capita
 
       {/* 板块分析总结 */}
       {(topIndustries.length > 0 || topCapitalInflow.length > 0) && (
-        <div className="rounded-lg border border-border bg-background/60 p-4">
+        <div className="rounded-xl border border-border/60 bg-background/60 p-4 xl:col-span-3">
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary" />
             板块分析总结
