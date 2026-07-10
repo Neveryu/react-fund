@@ -669,6 +669,46 @@ export async function fetchFundRanking(): Promise<FundRankingData[]> {
   }
 }
 
+export async function fetchYesterdayFundRanking(): Promise<FundRankingData[]> {
+  try {
+    ;(window as any).db = undefined
+    const url = `https://fund.eastmoney.com/Data/Fund_JJJZ_Data.aspx?t=1&lx=1&letter=&gsid=&text=&sort=zdf,desc&page=1,50&dt=&atfc=&onlySale=0&_=${Date.now()}`
+    const data = await loadScriptVar<any>(url, 'db', 10000)
+    ;(window as any).db = undefined
+
+    if (!data?.datas || !Array.isArray(data.datas)) return []
+
+    const navDate = Array.isArray(data.showday) ? String(data.showday[0] || '') : ''
+
+    return data.datas
+      .filter((item: any[]) => {
+        const name = String(item[1] || '')
+        const nav = parseFloat(item[3])
+        const dayChange = parseFloat(item[8])
+        const isExchangeFund = (/ETF/i.test(name) && !name.includes('ETF联接')) || /LOF|REIT/i.test(name)
+        return !isExchangeFund && Number.isFinite(nav) && nav > 0 && Number.isFinite(dayChange)
+      })
+      .map((item: any[]) => ({
+        code: String(item[0] || ''),
+        name: String(item[1] || ''),
+        type: inferFundType(String(item[1] || '')),
+        nav: parseFloat(item[3]) || 0,
+        navDate,
+        dayChange: parseFloat(item[8]) || 0,
+        weekChange: 0,
+        monthChange: 0,
+        threeMonth: 0,
+        sixMonth: 0,
+        oneYear: 0,
+        twoYear: 0,
+      }))
+      .slice(0, 20)
+  } catch (err) {
+    console.error('[fetchYesterdayFundRanking] error:', err)
+    return []
+  }
+}
+
 /* ── Daily Market Analysis ─────────────────── */
 
 export async function fetchMarketStats(): Promise<MarketStatsData | null> {
