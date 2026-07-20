@@ -15,7 +15,6 @@ import AiSettingsModal from '@/components/AiSettingsModal'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   hotStocks as mockStocks,
-  funds as mockFunds,
 } from '@/lib/data'
 import type { IndexData, StockData, FundData, FundRankingData, DailyAnalysisData, DailyAiAnalysis } from '@/lib/data'
 import {
@@ -49,7 +48,8 @@ export default function LiveDashboard() {
   const [indices, setIndices] = useState<IndexData[]>([])
   const [hotStocks, setHotStocks] = useState<StockData[]>([])
   const [watchlistStocks, setWatchlistStocks] = useState<StockData[]>([])
-  const [funds, setFunds] = useState<FundData[]>(mockFunds)
+  const [funds, setFunds] = useState<FundData[]>([])
+  const [isFundsLoading, setIsFundsLoading] = useState(true)
   const [fundRanking, setFundRanking] = useState<FundRankingData[]>([])
   const [yesterdayFundRanking, setYesterdayFundRanking] = useState<FundRankingData[]>([])
   const [fundRankingTab, setFundRankingTab] = useState<'today' | 'yesterday'>('today')
@@ -92,6 +92,7 @@ export default function LiveDashboard() {
 
   const fetchAllData = useCallback(async () => {
     setIsRefreshing(true)
+    setIsFundsLoading(true)
     try {
       const [indicesRes, hotStocksRes, watchlistStocksRes, fundsRes, rankingRes, yesterdayRankingRes, dailyRes] =
         await Promise.allSettled([
@@ -118,9 +119,10 @@ export default function LiveDashboard() {
       if (watchlistStocksRes.status === 'fulfilled') {
         setWatchlistStocks(watchlistStocksRes.value || [])
       }
-      if (fundsRes.status === 'fulfilled' && fundsRes.value?.length) {
-        setFunds(fundsRes.value)
+      if (fundsRes.status === 'fulfilled') {
+        setFunds(fundsRes.value || [])
       }
+      setIsFundsLoading(false)
       if (rankingRes.status === 'fulfilled' && rankingRes.value?.length) {
         setFundRanking(rankingRes.value)
       }
@@ -295,6 +297,10 @@ export default function LiveDashboard() {
                   onClick={() => handleSelectFund(fund)}
                 />
               ))
+            ) : fundList.length > 0 && isFundsLoading ? (
+              <div className="col-span-full flex items-center justify-center rounded-lg border border-dashed border-border py-10 text-sm text-muted-foreground">
+                正在加载跟踪基金数据...
+              </div>
             ) : (
               <div className="col-span-full">
                 <EmptyWatchlist
