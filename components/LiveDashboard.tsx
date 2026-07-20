@@ -179,7 +179,7 @@ export default function LiveDashboard() {
       if (indicesRes.status === 'fulfilled' && indicesRes.value?.length) {
         nextIndices = indicesRes.value.map((item) => ({
           ...item,
-          sparkline: item.sparkline.length
+          sparkline: item.sparkline?.length
             ? item.sparkline
             : indicesRef.current.find((current) => current.code === item.code)?.sparkline || [],
         }))
