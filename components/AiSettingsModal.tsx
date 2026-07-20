@@ -7,9 +7,11 @@ import { getAiConfig, setAiConfig, type AiConfig } from '@/lib/ai-config'
 export default function AiSettingsModal({
   isOpen,
   onClose,
+  onSaved,
 }: {
   isOpen: boolean
   onClose: () => void
+  onSaved?: () => void
 }) {
   const [config, setConfig] = useState<AiConfig>(getAiConfig())
 
@@ -32,12 +34,14 @@ export default function AiSettingsModal({
   const handleSave = () => {
     setAiConfig(config)
     onClose()
+    onSaved?.()
   }
 
   const handleClear = () => {
     setAiConfig({ apiKey: '', model: '', baseUrl: '' })
     setConfig({ apiKey: '', model: 'gpt-4o-mini', baseUrl: 'https://api.openai.com/v1' })
     onClose()
+    onSaved?.()
   }
 
   const handleClose = () => {

@@ -153,7 +153,7 @@ export const INDEX_META: Record<string, { flag: string; market: string; secid: s
 
 const SECIDS = Object.values(INDEX_META).map((m) => m.secid)
 
-export async function fetchIndices(): Promise<IndexData[]> {
+export async function fetchIndices(options: { includeSparkline?: boolean } = {}): Promise<IndexData[]> {
   try {
     const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${SECIDS.join(',')}&fields=f1,f2,f3,f4,f12,f13,f14&_=${Date.now()}`
     const data = await jsonp<any>(url, 'cb')
@@ -163,22 +163,22 @@ export async function fetchIndices(): Promise<IndexData[]> {
     }
 
     const sparklineMap = new Map<string, number[]>()
-    await Promise.all(
-      Object.entries(INDEX_META).map(async ([code, meta]) => {
-        try {
-          const kUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${meta.secid}&klt=101&fqt=1&lmt=15&end=20500101&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57,f58`
-          const kData = await jsonp<any>(kUrl, 'callback')
-          if (kData.data?.klines && Array.isArray(kData.data.klines)) {
-            sparklineMap.set(
-              code,
-              kData.data.klines.map((k: string) => parseFloat(k.split(',')[2]))
-            )
-          }
-        } catch {
-          /* sparkline is optional */
-        }
-      })
-    )
+    if (options.includeSparkline) {
+      await Promise.all(
+        Object.entries(INDEX_META).map(async ([code, meta]) => {
+          try {
+            const kUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${meta.secid}&klt=101&fqt=1&lmt=15&end=20500101&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57,f58`
+            const kData = await jsonp<any>(kUrl, 'callback')
+            if (kData.data?.klines && Array.isArray(kData.data.klines)) {
+              sparklineMap.set(
+                code,
+                kData.data.klines.map((k: string) => parseFloat(k.split(',')[2]))
+              )
+            }
+          } catch {}
+        })
+      )
+    }
 
     return data.data.diff
       .filter((item: any) => typeof item.f2 === 'number')
@@ -293,7 +293,17 @@ function fetchFundNav(
   })
 }
 
-async function fetchFundHistory(
+let fundHistoryQueue = Promise.resolve()
+
+function fetchFundHistory(
+  code: string
+): Promise<{ returns: NonNullable<FundData['returns']>; sparkline: number[] } | null> {
+  const task = fundHistoryQueue.then(() => fetchFundHistoryUnsafe(code))
+  fundHistoryQueue = task.then(() => undefined, () => undefined)
+  return task
+}
+
+async function fetchFundHistoryUnsafe(
   code: string
 ): Promise<{ returns: NonNullable<FundData['returns']>; sparkline: number[] } | null> {
   ;(window as any).Data_netWorthTrend = undefined
@@ -462,19 +472,22 @@ export async function fetchStocksByCodes(codes: string[]): Promise<StockData[]> 
 /* ── Dynamic Fund Fetch ─────────────────────── */
 
 export async function fetchFundsByCodes(
-  items: { code: string; type: string; manager?: string }[]
+  items: { code: string; type: string; manager?: string }[],
+  options: { includeHistory?: boolean } = {}
 ): Promise<FundData[]> {
   if (!items.length) return []
 
   const codes = items.map((i) => i.code)
-  const historyPromises = codes.map((code) => fetchFundHistory(code))
+  const historyPromises = options.includeHistory
+    ? codes.map((code) => fetchFundHistory(code))
+    : []
 
   const navs: (Awaited<ReturnType<typeof fetchFundNav>>)[] = []
   for (const code of codes) {
     navs.push(await fetchFundNav(code))
   }
 
-  const histories = await Promise.all(historyPromises)
+  const histories = options.includeHistory ? await Promise.all(historyPromises) : []
 
   return items
     .map((item, i) => {
@@ -1088,7 +1101,7 @@ export async function fetchHeatmapData(): Promise<HeatmapSector[]> {
   }
 }
 
-export async function fetchDailyAnalysis(): Promise<DailyAnalysisData> {
+export async function fetchDailyAnalysis(options: { includeHeatmap?: boolean } = {}): Promise<DailyAnalysisData> {
   const [statsRes, allIndustryRes, industryRes, conceptRes, flowRes, trendRes, heatmapRes] = await Promise.allSettled([
     fetchMarketStats(),
     fetchAllIndustrySectors(),
@@ -1096,7 +1109,7 @@ export async function fetchDailyAnalysis(): Promise<DailyAnalysisData> {
     fetchSectorRanking('concept'),
     fetchSectorCapitalFlow(),
     fetchTurnoverTrend(),
-    fetchHeatmapData(),
+    options.includeHeatmap ? fetchHeatmapData() : Promise.resolve([]),
   ])
 
   return {

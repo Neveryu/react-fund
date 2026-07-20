@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import MarketTicker from '@/components/MarketTicker'
 import IndexCard from '@/components/IndexCard'
 import StockTable from '@/components/StockTable'
@@ -13,9 +13,6 @@ import IndexChartModal from '@/components/IndexChartModal'
 import FundDetailModal from '@/components/FundDetailModal'
 import AiSettingsModal from '@/components/AiSettingsModal'
 import { Card, CardContent } from '@/components/ui/card'
-import {
-  hotStocks as mockStocks,
-} from '@/lib/data'
 import type { IndexData, StockData, FundData, FundRankingData, DailyAnalysisData, DailyAiAnalysis } from '@/lib/data'
 import {
   TrendingUp,
@@ -40,6 +37,11 @@ import {
 } from '@/lib/client-api'
 import { useWatchlist } from '@/lib/watchlist'
 import { cn } from '@/lib/utils'
+
+const FAST_REFRESH_INTERVAL = 30_000
+const MEDIUM_REFRESH_INTERVAL = 5 * 60_000
+const SLOW_REFRESH_INTERVAL = 30 * 60_000
+const AI_REFRESH_INTERVAL = 15 * 60_000
 
 export default function LiveDashboard() {
   const { fundList, stockList, addFund, removeFund, addStock, removeStock, mounted } =
@@ -74,6 +76,27 @@ export default function LiveDashboard() {
   const [selectedFund, setSelectedFund] = useState<FundRankingData | FundData | null>(null)
   const [isLoadingFundDetail, setIsLoadingFundDetail] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const refreshInFlightRef = useRef(false)
+  const aiInFlightRef = useRef(false)
+  const aiAnalysisRef = useRef<DailyAiAnalysis | null>(null)
+  const lastMediumRefreshRef = useRef(0)
+  const lastSlowRefreshRef = useRef(0)
+  const lastAiRefreshRef = useRef(0)
+  const lastAiFingerprintRef = useRef('')
+  const hasInitialRefreshRef = useRef(false)
+  const indicesRef = useRef<IndexData[]>([])
+  const dailyAnalysisRef = useRef(dailyAnalysis)
+  const fundsRef = useRef<FundData[]>([])
+  const fundListRef = useRef(fundList)
+  const stockListRef = useRef(stockList)
+
+  useEffect(() => {
+    fundListRef.current = fundList
+  }, [fundList])
+
+  useEffect(() => {
+    stockListRef.current = stockList
+  }, [stockList])
 
   const handleSelectFund = async (fund: FundRankingData | FundData) => {
     setSelectedFund(fund)
@@ -90,76 +113,162 @@ export default function LiveDashboard() {
     }
   }
 
-  const fetchAllData = useCallback(async () => {
+  const refreshAiAnalysis = useCallback((nextIndices: IndexData[], nextDailyAnalysis: DailyAnalysisData, force = false) => {
+    if (!nextIndices.length || !nextDailyAnalysis.marketStats || aiInFlightRef.current) return
+
+    const fingerprint = JSON.stringify({
+      date: new Date().toLocaleDateString('zh-CN'),
+      indices: nextIndices.map(({ code, value, changePercent }) => [code, value, changePercent]),
+      marketStats: nextDailyAnalysis.marketStats,
+      industries: nextDailyAnalysis.industrySectors.slice(0, 5).map(({ code, changePercent }) => [code, changePercent]),
+      capitalFlow: nextDailyAnalysis.capitalFlow.slice(0, 5).map(({ code, mainNetInflow }) => [code, mainNetInflow]),
+    })
+    const now = Date.now()
+    if (!force && (fingerprint === lastAiFingerprintRef.current || now - lastAiRefreshRef.current < AI_REFRESH_INTERVAL)) return
+
+    aiInFlightRef.current = true
+    setIsAiAnalysisLoading(true)
+    generateDailyAiAnalysis(nextIndices, nextDailyAnalysis)
+      .then((result) => {
+        aiAnalysisRef.current = result
+        setAiAnalysis(result)
+        lastAiFingerprintRef.current = fingerprint
+        lastAiRefreshRef.current = Date.now()
+      })
+      .catch((error) => console.error('Failed to generate AI analysis:', error))
+      .finally(() => {
+        aiInFlightRef.current = false
+        setIsAiAnalysisLoading(false)
+      })
+  }, [])
+
+  const fetchAllData = useCallback(async (forceFull = false) => {
+    if (refreshInFlightRef.current) return
+    if (!forceFull && document.visibilityState !== 'visible') return
+
+    refreshInFlightRef.current = true
     setIsRefreshing(true)
-    setIsFundsLoading(true)
+    const now = Date.now()
+    const shouldRefreshMedium = forceFull || now - lastMediumRefreshRef.current >= MEDIUM_REFRESH_INTERVAL
+    const shouldRefreshSlow = forceFull || now - lastSlowRefreshRef.current >= SLOW_REFRESH_INTERVAL
+    if (shouldRefreshMedium) setIsFundsLoading(true)
+
     try {
-      const [indicesRes, hotStocksRes, watchlistStocksRes, fundsRes, rankingRes, yesterdayRankingRes, dailyRes] =
-        await Promise.allSettled([
-          fetchIndices(),
-          fetchHotStocks(),
-          stockList.length > 0
-            ? fetchStocksByCodes(stockList.map((s) => s.code))
-            : Promise.resolve([] as StockData[]),
-          fundList.length > 0
-            ? fetchFundsByCodes(fundList)
-            : Promise.resolve([] as FundData[]),
-          fetchFundRanking(),
-          fetchYesterdayFundRanking(),
-          fetchDailyAnalysis(),
-        ])
+      const currentFundList = fundListRef.current
+      const currentStockList = stockListRef.current
+      const [indicesRes, hotStocksRes, watchlistStocksRes, fundsRes, rankingRes, yesterdayRankingRes, dailyRes] = await Promise.allSettled([
+        fetchIndices({ includeSparkline: shouldRefreshSlow }),
+        fetchHotStocks(),
+        currentStockList.length > 0
+          ? fetchStocksByCodes(currentStockList.map((s) => s.code))
+          : Promise.resolve([] as StockData[]),
+        shouldRefreshMedium
+          ? currentFundList.length > 0
+            ? fetchFundsByCodes(currentFundList, { includeHistory: shouldRefreshSlow })
+            : Promise.resolve([] as FundData[])
+          : Promise.resolve(null),
+        shouldRefreshSlow ? fetchFundRanking() : Promise.resolve(null),
+        shouldRefreshSlow ? fetchYesterdayFundRanking() : Promise.resolve(null),
+        shouldRefreshMedium ? fetchDailyAnalysis({ includeHeatmap: shouldRefreshSlow }) : Promise.resolve(null),
+      ])
+
+      let hasSuccessfulUpdate = false
+      let nextIndices = indicesRef.current
+      let nextDailyAnalysis = dailyAnalysisRef.current
 
       if (indicesRes.status === 'fulfilled' && indicesRes.value?.length) {
-        setIndices(indicesRes.value)
+        nextIndices = indicesRes.value.map((item) => ({
+          ...item,
+          sparkline: item.sparkline.length
+            ? item.sparkline
+            : indicesRef.current.find((current) => current.code === item.code)?.sparkline || [],
+        }))
+        indicesRef.current = nextIndices
+        setIndices(nextIndices)
         setIsLive(true)
+        hasSuccessfulUpdate = true
       }
       if (hotStocksRes.status === 'fulfilled' && hotStocksRes.value?.length) {
         setHotStocks(hotStocksRes.value)
+        hasSuccessfulUpdate = true
       }
       if (watchlistStocksRes.status === 'fulfilled') {
         setWatchlistStocks(watchlistStocksRes.value || [])
+        hasSuccessfulUpdate = true
       }
-      if (fundsRes.status === 'fulfilled') {
-        setFunds(fundsRes.value || [])
+      if (fundsRes.status === 'fulfilled' && fundsRes.value !== null) {
+        const nextFunds = fundsRes.value.map((fund) => {
+          const previous = fundsRef.current.find((item) => item.code === fund.code)
+          return {
+            ...fund,
+            returns: fund.returns || previous?.returns,
+            sparkline: fund.sparkline?.length ? fund.sparkline : previous?.sparkline,
+          }
+        })
+        fundsRef.current = nextFunds
+        setFunds(nextFunds)
+        hasSuccessfulUpdate = true
       }
-      setIsFundsLoading(false)
       if (rankingRes.status === 'fulfilled' && rankingRes.value?.length) {
         setFundRanking(rankingRes.value)
+        hasSuccessfulUpdate = true
       }
       if (yesterdayRankingRes.status === 'fulfilled' && yesterdayRankingRes.value?.length) {
         setYesterdayFundRanking(yesterdayRankingRes.value)
+        hasSuccessfulUpdate = true
       }
-      if (dailyRes.status === 'fulfilled') {
-        setDailyAnalysis(dailyRes.value)
-      }
-
-      if (
-        indicesRes.status === 'fulfilled' &&
-        indicesRes.value?.length &&
-        dailyRes.status === 'fulfilled'
-      ) {
-        setIsAiAnalysisLoading(true)
-        generateDailyAiAnalysis(indicesRes.value, dailyRes.value)
-          .then((result) => setAiAnalysis(result))
-          .finally(() => setIsAiAnalysisLoading(false))
-      } else {
-        setIsAiAnalysisLoading(false)
-        setAiAnalysis(null)
+      if (dailyRes.status === 'fulfilled' && dailyRes.value !== null) {
+        nextDailyAnalysis = {
+          ...dailyRes.value,
+          heatmapData: dailyRes.value.heatmapData.length
+            ? dailyRes.value.heatmapData
+            : dailyAnalysisRef.current.heatmapData,
+        }
+        dailyAnalysisRef.current = nextDailyAnalysis
+        setDailyAnalysis(nextDailyAnalysis)
+        hasSuccessfulUpdate = true
       }
 
-      setLastUpdate(new Date().toLocaleTimeString('zh-CN'))
+      if (shouldRefreshMedium) lastMediumRefreshRef.current = Date.now()
+      if (shouldRefreshSlow) lastSlowRefreshRef.current = Date.now()
+      if (hasSuccessfulUpdate) {
+        setLastUpdate(new Date().toLocaleTimeString('zh-CN'))
+      }
+      refreshAiAnalysis(nextIndices, nextDailyAnalysis, forceFull && !aiAnalysisRef.current)
     } catch (e) {
       console.error('Failed to refresh market data:', e)
     } finally {
+      setIsFundsLoading(false)
       setIsRefreshing(false)
+      refreshInFlightRef.current = false
     }
-  }, [fundList, stockList])
+  }, [refreshAiAnalysis])
+
+  useEffect(() => {
+    if (!mounted || !hasInitialRefreshRef.current) return
+    lastMediumRefreshRef.current = 0
+    void fetchAllData()
+  }, [fundList, mounted, fetchAllData])
+
+  useEffect(() => {
+    if (!mounted || !hasInitialRefreshRef.current) return
+    void fetchAllData()
+  }, [stockList, mounted, fetchAllData])
 
   useEffect(() => {
     if (!mounted) return
-    fetchAllData()
-    const interval = setInterval(fetchAllData, 30000)
-    return () => clearInterval(interval)
+    void fetchAllData(true).finally(() => {
+      hasInitialRefreshRef.current = true
+    })
+    const interval = window.setInterval(() => void fetchAllData(), FAST_REFRESH_INTERVAL)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void fetchAllData()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [fetchAllData, mounted])
 
   const upCount = indices.filter((i) => i.changePercent > 0).length
@@ -182,7 +291,7 @@ export default function LiveDashboard() {
                 <span>实时数据</span>
               </>
             ) : (
-              <span>模拟数据</span>
+              <span>{isRefreshing ? '正在连接数据源' : '数据源未连接'}</span>
             )}
             {lastUpdate && <span>· 更新于 {lastUpdate}</span>}
           </div>
@@ -195,7 +304,7 @@ export default function LiveDashboard() {
               <Settings className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
             <button
-              onClick={fetchAllData}
+              onClick={() => void fetchAllData(true)}
               disabled={isRefreshing}
               className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 px-2 py-1 transition-colors disabled:opacity-50"
             >
@@ -418,7 +527,11 @@ export default function LiveDashboard() {
               onClose={() => setSelectedFund(null)}
               isLoading={isLoadingFundDetail}
             />
-      <AiSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <AiSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onSaved={() => refreshAiAnalysis(indicesRef.current, dailyAnalysisRef.current, true)}
+      />
       <ScrollToTop />
     </>
   )
