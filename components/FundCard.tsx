@@ -18,11 +18,12 @@ type Period = keyof typeof periodLabels
 
 export default function FundCard({ data, onRemove, onClick }: { data: FundData; onRemove?: () => void; onClick?: () => void }) {
   const [period, setPeriod] = useState<Period>('oneDay')
-  const isPositive = data.dayChange >= 0
+  const hasValuation = data.dayChange !== null && typeof data.estimatedNav === 'number'
+  const isPositive = (data.dayChange ?? 0) >= 0
   const periodReturn = period === 'oneDay'
     ? data.dayChange
     : (data.returns?.[period as keyof typeof data.returns] ?? 0)
-  const isPeriodPositive = periodReturn >= 0
+  const isPeriodPositive = (periodReturn ?? 0) >= 0
 
   return (
     <div
@@ -62,11 +63,15 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
 
       <div className="flex items-center gap-3 sm:gap-5 shrink-0 w-full sm:w-auto">
         <div className="text-right sm:min-w-[70px]">
-          <p className="text-base font-bold tabular-nums">{data.nav.toFixed(4)}</p>
-          <p className={cn('flex items-center justify-end gap-0.5 text-xs font-medium tabular-nums', isPositive ? 'text-success' : 'text-destructive')}>
-            {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {isPositive ? '+' : ''}{data.dayChange.toFixed(2)}%
-          </p>
+          <p className="text-base font-bold tabular-nums">{(data.estimatedNav ?? data.nav).toFixed(4)}</p>
+          {hasValuation ? (
+            <p className={cn('flex items-center justify-end gap-0.5 text-xs font-medium tabular-nums', isPositive ? 'text-success' : 'text-destructive')}>
+              {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+              {isPositive ? '+' : ''}{data.dayChange?.toFixed(2)}%
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground whitespace-nowrap">暂无盘中估值</p>
+          )}
         </div>
 
         <div className="flex items-center gap-0.5">
@@ -74,7 +79,7 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
             const val = key === 'oneDay'
               ? data.dayChange
               : (data.returns?.[key as keyof typeof data.returns] ?? 0)
-            const pos = val >= 0
+            const pos = (val ?? 0) >= 0
             return (
               <button
                 key={key}
@@ -82,7 +87,9 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
                 className={cn(
                   'text-xs px-1.5 py-0.5 rounded transition-colors tabular-nums',
                   period === key
-                    ? pos
+                    ? val === null
+                      ? 'bg-secondary text-muted-foreground font-medium'
+                      : pos
                       ? 'bg-success/15 text-success font-medium'
                       : 'bg-destructive/15 text-destructive font-medium'
                     : 'text-muted-foreground hover:text-foreground'
@@ -95,11 +102,12 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
           <span
             className={cn(
               'text-xs font-semibold tabular-nums ml-1 px-1.5 py-0.5 rounded',
-              isPeriodPositive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
+              periodReturn === null
+                ? 'bg-secondary text-muted-foreground'
+                : isPeriodPositive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
             )}
           >
-            {isPeriodPositive ? '+' : ''}
-            {periodReturn.toFixed(2)}%
+            {periodReturn === null ? '暂无' : `${isPeriodPositive ? '+' : ''}${periodReturn.toFixed(2)}%`}
           </span>
         </div>
       </div>

@@ -11,7 +11,10 @@ interface FundDetailInfo {
   type: string
   nav: number
   navDate: string
-  dayChange: number
+  dayChange: number | null
+  estimatedNav?: number | null
+  valuationTime?: string | null
+  isTrackedFund?: boolean
   manager?: string
   scale?: string
   // 收益
@@ -44,6 +47,9 @@ function adaptFundData(data: FundRankingData | FundData): FundDetailInfo {
     nav: enriched.nav,
     navDate: enriched.navDate,
     dayChange: enriched.dayChange,
+    estimatedNav: enriched.estimatedNav,
+    valuationTime: enriched.valuationTime,
+    isTrackedFund: true,
     manager: enriched.manager,
     scale: enriched.scale,
     weekChange: enriched.returns?.oneWeek ?? 0,
@@ -143,15 +149,37 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
               <p className="text-xs text-muted-foreground mt-1">日期: {info.navDate}</p>
             </div>
             <div className="pb-1">
-              <span
-                className={cn(
-                  'text-2xl font-bold tabular-nums',
-                  isPositive(info.dayChange) ? 'text-success' : 'text-destructive'
-                )}
-              >
-                {formatChange(info.dayChange)}
-              </span>
-              <p className="text-sm text-muted-foreground">日涨跌幅</p>
+              {!info.isTrackedFund && info.dayChange !== null ? (
+                <>
+                  <span
+                    className={cn(
+                      'text-2xl font-bold tabular-nums',
+                      isPositive(info.dayChange) ? 'text-success' : 'text-destructive'
+                    )}
+                  >
+                    {formatChange(info.dayChange)}
+                  </span>
+                  <p className="text-sm text-muted-foreground">日涨跌幅</p>
+                </>
+              ) : info.dayChange !== null && typeof info.estimatedNav === 'number' ? (
+                <>
+                  <span
+                    className={cn(
+                      'text-2xl font-bold tabular-nums',
+                      isPositive(info.dayChange) ? 'text-success' : 'text-destructive'
+                    )}
+                  >
+                    {formatChange(info.dayChange)}
+                  </span>
+                  <p className="text-sm text-muted-foreground">盘中估值 {info.estimatedNav?.toFixed(4)}</p>
+                  {info.valuationTime && <p className="text-xs text-muted-foreground">{info.valuationTime}</p>}
+                </>
+              ) : (
+                <>
+                  <span className="text-base font-medium text-muted-foreground">暂无盘中估值</span>
+                  <p className="text-xs text-muted-foreground">以正式净值为准</p>
+                </>
+              )}
             </div>
           </div>
 

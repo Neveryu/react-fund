@@ -109,7 +109,9 @@ export interface FundData {
   type: string
   nav: number
   navDate: string
-  dayChange: number
+  dayChange: number | null
+  estimatedNav?: number | null
+  valuationTime?: string | null
   manager?: string
   scale?: string
   returns?: {

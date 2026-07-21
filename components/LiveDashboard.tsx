@@ -52,6 +52,7 @@ export default function LiveDashboard() {
   const [watchlistStocks, setWatchlistStocks] = useState<StockData[]>([])
   const [funds, setFunds] = useState<FundData[]>([])
   const [isFundsLoading, setIsFundsLoading] = useState(true)
+  const [fundsError, setFundsError] = useState(false)
   const [fundRanking, setFundRanking] = useState<FundRankingData[]>([])
   const [yesterdayFundRanking, setYesterdayFundRanking] = useState<FundRankingData[]>([])
   const [fundRankingTab, setFundRankingTab] = useState<'today' | 'yesterday'>('today')
@@ -79,6 +80,7 @@ export default function LiveDashboard() {
   const refreshInFlightRef = useRef(false)
   const aiInFlightRef = useRef(false)
   const aiAnalysisRef = useRef<DailyAiAnalysis | null>(null)
+  const lastFundRefreshRef = useRef(0)
   const lastMediumRefreshRef = useRef(0)
   const lastSlowRefreshRef = useRef(0)
   const lastAiRefreshRef = useRef(0)
@@ -149,9 +151,10 @@ export default function LiveDashboard() {
     refreshInFlightRef.current = true
     setIsRefreshing(true)
     const now = Date.now()
+    const shouldRefreshFunds = forceFull || now - lastFundRefreshRef.current >= MEDIUM_REFRESH_INTERVAL
     const shouldRefreshMedium = forceFull || now - lastMediumRefreshRef.current >= MEDIUM_REFRESH_INTERVAL
     const shouldRefreshSlow = forceFull || now - lastSlowRefreshRef.current >= SLOW_REFRESH_INTERVAL
-    if (shouldRefreshMedium) setIsFundsLoading(true)
+    if (shouldRefreshFunds) setIsFundsLoading(true)
 
     try {
       const currentFundList = fundListRef.current
@@ -162,7 +165,7 @@ export default function LiveDashboard() {
         currentStockList.length > 0
           ? fetchStocksByCodes(currentStockList.map((s) => s.code))
           : Promise.resolve([] as StockData[]),
-        shouldRefreshMedium
+        shouldRefreshFunds
           ? currentFundList.length > 0
             ? fetchFundsByCodes(currentFundList, { includeHistory: shouldRefreshSlow })
             : Promise.resolve([] as FundData[])
@@ -196,7 +199,7 @@ export default function LiveDashboard() {
         setWatchlistStocks(watchlistStocksRes.value || [])
         hasSuccessfulUpdate = true
       }
-      if (fundsRes.status === 'fulfilled' && fundsRes.value !== null) {
+      if (fundsRes.status === 'fulfilled' && fundsRes.value !== null && (fundsRes.value.length > 0 || currentFundList.length === 0)) {
         const nextFunds = fundsRes.value.map((fund) => {
           const previous = fundsRef.current.find((item) => item.code === fund.code)
           return {
@@ -207,7 +210,11 @@ export default function LiveDashboard() {
         })
         fundsRef.current = nextFunds
         setFunds(nextFunds)
+        setFundsError(false)
+        lastFundRefreshRef.current = Date.now()
         hasSuccessfulUpdate = true
+      } else if (shouldRefreshFunds && currentFundList.length > 0) {
+        setFundsError(true)
       }
       if (rankingRes.status === 'fulfilled' && rankingRes.value?.length) {
         setFundRanking(rankingRes.value)
@@ -229,7 +236,9 @@ export default function LiveDashboard() {
         hasSuccessfulUpdate = true
       }
 
-      if (shouldRefreshMedium) lastMediumRefreshRef.current = Date.now()
+      if (shouldRefreshMedium && dailyRes.status === 'fulfilled' && dailyRes.value !== null) {
+        lastMediumRefreshRef.current = Date.now()
+      }
       if (shouldRefreshSlow) lastSlowRefreshRef.current = Date.now()
       if (hasSuccessfulUpdate) {
         setLastUpdate(new Date().toLocaleTimeString('zh-CN'))
@@ -246,7 +255,7 @@ export default function LiveDashboard() {
 
   useEffect(() => {
     if (!mounted || !hasInitialRefreshRef.current) return
-    lastMediumRefreshRef.current = 0
+    lastFundRefreshRef.current = 0
     void fetchAllData()
   }, [fundList, mounted, fetchAllData])
 
@@ -397,6 +406,11 @@ export default function LiveDashboard() {
             </button>
           </div>
           <div className="grid grid-cols-1 gap-2 mt-3">
+            {fundList.length > 0 && fundsError && funds.length > 0 && (
+              <div className="col-span-full rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                基金数据暂时获取失败，当前显示上一次有效数据，系统将自动重试
+              </div>
+            )}
             {funds.length > 0 ? (
               funds.map((fund) => (
                 <FundCard
@@ -409,6 +423,10 @@ export default function LiveDashboard() {
             ) : fundList.length > 0 && isFundsLoading ? (
               <div className="col-span-full flex items-center justify-center rounded-lg border border-dashed border-border py-10 text-sm text-muted-foreground">
                 正在加载跟踪基金数据...
+              </div>
+            ) : fundList.length > 0 && fundsError ? (
+              <div className="col-span-full flex items-center justify-center rounded-lg border border-dashed border-destructive/40 bg-destructive/5 py-10 text-sm text-destructive">
+                基金数据暂时获取失败，系统将自动重试
               </div>
             ) : (
               <div className="col-span-full">

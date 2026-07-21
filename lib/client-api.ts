@@ -254,43 +254,52 @@ const FUND_CONFIG = [
   { code: '000051', type: '指数型', manager: '张弘弢', scale: '345.6亿' },
 ]
 
-function fetchFundNav(
-  code: string
-): Promise<{ name: string; nav: number; dayChange: number; navDate: string } | null> {
-  return new Promise((resolve) => {
-    const script = document.createElement('script')
-    let done = false
+interface FundValuationRaw {
+  FCODE: string
+  SHORTNAME: string
+  GSZZL: number | null
+  GZTIME: string | null
+  GSZ: number | null
+  NAV: number | null
+  PDATE: string | null
+}
 
-    const cleanup = () => {
-      done = true
-      delete (window as any).jsonpgz
-      if (script.parentNode) script.parentNode.removeChild(script)
-    }
+interface FundValuationResponse {
+  data?: FundValuationRaw[]
+  success?: boolean
+  errorCode?: number
+}
 
-    ;(window as any).jsonpgz = (data: any) => {
-      resolve({
-        name: data.name,
-        nav: parseFloat(data.dwjz),
-        dayChange: parseFloat(data.gszzl),
-        navDate: data.jzrq,
-      })
-      cleanup()
-    }
-
-    script.src = `https://fundgz.1234567.com.cn/js/${code}.js?rt=${Date.now()}`
-    script.onerror = () => {
-      if (!done) resolve(null)
-      cleanup()
-    }
-
-    document.head.appendChild(script)
-    setTimeout(() => {
-      if (!done) {
-        resolve(null)
-        cleanup()
-      }
-    }, 5000)
+async function fetchFundValuations(codes: string[]): Promise<Map<string, FundValuationRaw>> {
+  const params = new URLSearchParams({
+    FCODES: codes.join(','),
+    FIELDS: 'FCODE,SHORTNAME,GSZZL,GZTIME,GSZ,NAV,PDATE',
   })
+  const hosts = ['fundcomapi.tiantianfunds.com', 'fundcomapi.eastmoney.com']
+  let lastError: unknown
+
+  for (const host of hosts) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 8000)
+    try {
+      const response = await fetch(`https://${host}/mm/newCore/FundValuationLast?${params}`, {
+        signal: controller.signal,
+        cache: 'no-store',
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const result = await response.json() as FundValuationResponse
+      if (result.success === false || result.errorCode !== 0 || !Array.isArray(result.data)) {
+        throw new Error('Invalid fund valuation response')
+      }
+      return new Map(result.data.map((item) => [String(item.FCODE), item]))
+    } catch (error) {
+      lastError = error
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Fund valuation request failed')
 }
 
 let fundHistoryQueue = Promise.resolve()
@@ -478,28 +487,26 @@ export async function fetchFundsByCodes(
   if (!items.length) return []
 
   const codes = items.map((i) => i.code)
+  const valuationsPromise = fetchFundValuations(codes)
   const historyPromises = options.includeHistory
     ? codes.map((code) => fetchFundHistory(code))
     : []
-
-  const navs: (Awaited<ReturnType<typeof fetchFundNav>>)[] = []
-  for (const code of codes) {
-    navs.push(await fetchFundNav(code))
-  }
-
+  const valuations = await valuationsPromise
   const histories = options.includeHistory ? await Promise.all(historyPromises) : []
 
   return items
     .map((item, i) => {
-      const nav = navs[i]
-      if (!nav) return null
+      const valuation = valuations.get(item.code)
+      if (!valuation || typeof valuation.NAV !== 'number') return null
       return {
-        name: nav.name,
+        name: valuation.SHORTNAME || item.code,
         code: item.code,
         type: item.type,
-        nav: nav.nav,
-        navDate: nav.navDate,
-        dayChange: nav.dayChange,
+        nav: valuation.NAV,
+        navDate: valuation.PDATE || '',
+        dayChange: typeof valuation.GSZZL === 'number' ? valuation.GSZZL : null,
+        estimatedNav: typeof valuation.GSZ === 'number' ? valuation.GSZ : null,
+        valuationTime: valuation.GZTIME || null,
         manager: item.manager || undefined,
         scale: undefined,
         returns: histories[i]?.returns,
@@ -511,24 +518,21 @@ export async function fetchFundsByCodes(
 
 export async function fetchFunds(): Promise<FundData[]> {
   const historyPromises = FUND_CONFIG.map((c) => fetchFundHistory(c.code))
-
-  const navs: (Awaited<ReturnType<typeof fetchFundNav>>)[] = []
-  for (const config of FUND_CONFIG) {
-    navs.push(await fetchFundNav(config.code))
-  }
-
+  const valuations = await fetchFundValuations(FUND_CONFIG.map((config) => config.code))
   const histories = await Promise.all(historyPromises)
 
   return FUND_CONFIG.map((config, i) => {
-    const nav = navs[i]
-    if (!nav) return null
+    const valuation = valuations.get(config.code)
+    if (!valuation || typeof valuation.NAV !== 'number') return null
     return {
-      name: nav.name,
+      name: valuation.SHORTNAME || config.code,
       code: config.code,
       type: config.type,
-      nav: nav.nav,
-      navDate: nav.navDate,
-      dayChange: nav.dayChange,
+      nav: valuation.NAV,
+      navDate: valuation.PDATE || '',
+      dayChange: typeof valuation.GSZZL === 'number' ? valuation.GSZZL : null,
+      estimatedNav: typeof valuation.GSZ === 'number' ? valuation.GSZ : null,
+      valuationTime: valuation.GZTIME || null,
       manager: config.manager,
       scale: config.scale,
       returns: histories[i]?.returns,
