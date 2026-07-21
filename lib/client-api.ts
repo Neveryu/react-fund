@@ -602,40 +602,76 @@ export async function fetchFundDetail(code: string): Promise<FundDetail | null> 
             JZBL?: string | number
             NEWTEXCH?: string | number
           }>
+          InverstPosition?: {
+            fundStocks?: Array<{
+              GPDM?: string
+              GPJC?: string
+              JZBL?: string | number
+              NEWTEXCH?: string | number
+            }>
+          }
         }
       }
 
-      const clients: Array<Record<string, string>> = [
+      const requests: Array<{
+        host: string
+        endpoint: string
+        client: Record<string, string>
+      }> = [
         {
-          deviceid: '3EA024C2-7F22-408B-95E4-383D38160FB3',
-          plat: 'Iphone',
-          product: 'EFund',
-          version: '6.3.8',
-          appType: 'ttjj',
-          serverVersion: '6.3.8',
+          host: 'fundmobapi.eastmoney.com',
+          endpoint: 'FundMNInverstPositionNew',
+          client: {
+            deviceid: '1234567.py.service',
+            plat: 'web',
+            product: 'EFund',
+            version: '6.5.5',
+            appVersion: '6.5.5',
+          },
         },
         {
-          deviceid: '1234567890',
-          plat: 'Android',
-          product: 'EFund',
-          version: '6.3.8',
+          host: 'fundmobapi.eastmoney.com',
+          endpoint: 'FundMNInverstPosition',
+          client: {
+            deviceid: '3EA024C2-7F22-408B-95E4-383D38160FB3',
+            plat: 'Iphone',
+            product: 'EFund',
+            version: '6.3.8',
+            appType: 'ttjj',
+            serverVersion: '6.3.8',
+          },
+        },
+        {
+          host: 'fundmobapi.tiantianfunds.com',
+          endpoint: 'FundMNInverstPosition',
+          client: {
+            deviceid: '3EA024C2-7F22-408B-95E4-383D38160FB3',
+            plat: 'Iphone',
+            product: 'EFund',
+            version: '6.3.8',
+            appType: 'ttjj',
+            serverVersion: '6.3.8',
+          },
         },
       ]
       let positionData: PositionData | null = null
       let lastError: unknown
 
-      for (const client of clients) {
+      for (const { host, endpoint, client } of requests) {
         const params = new URLSearchParams({ FCODE: code, ...client })
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), 8000)
         try {
           const response = await fetch(
-            `https://fundmobapi.eastmoney.com/FundMNewApi/FundMNInverstPosition?${params}`,
+            `https://${host}/FundMNewApi/${endpoint}?${params}`,
             { signal: controller.signal, cache: 'no-store' }
           )
           if (!response.ok) throw new Error(`HTTP ${response.status}`)
           const data = await response.json() as PositionData
-          if (!data.Success || data.ErrCode !== 0) {
+          const stockCount = data.Datas?.InverstPosition?.fundStocks?.length
+            ?? data.Datas?.fundStocks?.length
+            ?? 0
+          if (!data.Success || (data.ErrCode !== undefined && data.ErrCode !== 0) || stockCount === 0) {
             throw new Error(data.ErrMsg || 'Fund holdings request failed')
           }
           positionData = data
@@ -645,11 +681,16 @@ export async function fetchFundDetail(code: string): Promise<FundDetail | null> 
         } finally {
           clearTimeout(timer)
         }
+        if (positionData) break
       }
       if (!positionData) throw lastError instanceof Error ? lastError : new Error('Fund holdings request failed')
 
       result.holdingsReportDate = positionData.Expansion || undefined
-      const positionStocks = (positionData.Datas?.fundStocks || [])
+      const positionStocks = (
+        positionData.Datas?.InverstPosition?.fundStocks
+        || positionData.Datas?.fundStocks
+        || []
+      )
         .filter((item) => item.GPDM && item.GPJC)
         .slice(0, 10)
       if (!positionStocks.length) throw new Error('Fund holdings are empty')
