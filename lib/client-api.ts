@@ -652,23 +652,30 @@ export async function fetchFundDetail(code: string): Promise<FundDetail | null> 
       const positionStocks = (positionData.Datas?.fundStocks || [])
         .filter((item) => item.GPDM && item.GPJC)
         .slice(0, 10)
+      if (!positionStocks.length) throw new Error('Fund holdings are empty')
       const secids = positionStocks
         .filter((item) => item.NEWTEXCH !== undefined)
         .map((item) => `${item.NEWTEXCH}.${item.GPDM}`)
-      const quoteUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f3,f12,f13&secids=${secids.join(',')}&_=${Date.now()}`
-      const quoteData = secids.length ? await jsonp<any>(quoteUrl, 'cb') : null
-      const quotes = Array.isArray(quoteData?.data?.diff) ? quoteData.data.diff : []
-      const changeMap = new Map<string, number>(
-        quotes
-          .filter((item: any) => typeof item.f3 === 'number')
-          .map((item: any): [string, number] => [`${item.f13}.${item.f12}`, item.f3])
-      )
+      let changeMap: Map<string, number> = new Map<string, number>()
+      try {
+        const quoteUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f3,f12,f13&secids=${secids.join(',')}&_=${Date.now()}`
+        const quoteData = secids.length ? await jsonp<any>(quoteUrl, 'cb') : null
+        const quotes = Array.isArray(quoteData?.data?.diff) ? quoteData.data.diff : []
+        changeMap = new Map<string, number>(
+          quotes
+            .filter((item: any) => typeof item.f3 === 'number')
+            .map((item: any): [string, number] => [`${item.f13}.${item.f12}`, item.f3])
+        )
+      } catch (quoteError) {
+        console.error('Failed to fetch holding quotes:', quoteError)
+      }
       result.holdings = positionStocks.map((item) => {
         const secid = item.NEWTEXCH !== undefined ? `${item.NEWTEXCH}.${item.GPDM}` : ''
+        const percent = Number(item.JZBL)
         return {
           name: String(item.GPJC),
           code: String(item.GPDM),
-          percent: Number(item.JZBL) || 0,
+          percent: Number.isFinite(percent) ? percent : null,
           changePercent: changeMap.get(secid) ?? null,
         }
       })
