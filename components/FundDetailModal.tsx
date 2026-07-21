@@ -15,6 +15,8 @@ interface FundDetailInfo {
   estimatedNav?: number | null
   valuationTime?: string | null
   isTrackedFund?: boolean
+  holdingsReportDate?: string
+  holdingsError?: boolean
   manager?: string
   scale?: string
   // 收益
@@ -24,7 +26,7 @@ interface FundDetailInfo {
   sixMonth: number
   oneYear: number
   twoYear: number
-  holdings?: { name: string; code: string; percent: number }[]
+  holdings?: { name: string; code: string; percent: number | null }[]
 }
 
 interface FundDetailModalProps {
@@ -39,7 +41,13 @@ function adaptFundData(data: FundRankingData | FundData): FundDetailInfo {
     return data as FundDetailInfo
   }
   // FundData (may have been enriched by fetchFundDetail with manager, scale, holdings)
-  const enriched = data as FundData & { manager?: string; scale?: string; holdings?: { name: string; code: string; percent: number }[] }
+  const enriched = data as FundData & {
+    manager?: string
+    scale?: string
+    holdingsReportDate?: string
+    holdingsError?: boolean
+    holdings?: { name: string; code: string; percent: number | null }[]
+  }
   return {
     name: enriched.name,
     code: enriched.code,
@@ -50,6 +58,8 @@ function adaptFundData(data: FundRankingData | FundData): FundDetailInfo {
     estimatedNav: enriched.estimatedNav,
     valuationTime: enriched.valuationTime,
     isTrackedFund: true,
+    holdingsReportDate: enriched.holdingsReportDate,
+    holdingsError: enriched.holdingsError,
     manager: enriched.manager,
     scale: enriched.scale,
     weekChange: enriched.returns?.oneWeek ?? 0,
@@ -258,7 +268,12 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
 
           {/* 持仓情况 */}
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">前十大持仓</h3>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-medium text-muted-foreground">前十大持仓</h3>
+              {info.holdingsReportDate && (
+                <span className="text-xs text-muted-foreground">报告期：{info.holdingsReportDate}</span>
+              )}
+            </div>
             {isLoading && !info.holdings ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
@@ -292,12 +307,20 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-medium">{holding.percent.toFixed(2)}%</p>
-                      <p className="text-xs text-muted-foreground">持仓占比</p>
+                      {holding.percent !== null ? (
+                        <>
+                          <p className="text-sm font-medium">{holding.percent.toFixed(2)}%</p>
+                          <p className="text-xs text-muted-foreground">持仓占比</p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">占比暂未提供</p>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
+            ) : info.holdingsError ? (
+              <div className="text-sm text-destructive py-4 text-center">持仓数据暂时获取失败，请稍后重试</div>
             ) : (
               <div className="text-sm text-muted-foreground py-4 text-center">暂无持仓数据</div>
             )}

@@ -546,10 +546,12 @@ export async function fetchFunds(): Promise<FundData[]> {
 export interface FundDetail {
   manager?: string
   scale?: string
+  holdingsReportDate?: string
+  holdingsError?: boolean
   holdings?: {
     name: string
     code: string
-    percent: number
+    percent: number | null
   }[]
 }
 
@@ -563,6 +565,9 @@ export async function fetchFundDetail(code: string): Promise<FundDetail | null> 
     
     const Data_currentFundManager = (window as any).Data_currentFundManager
     const Data_fundInfo = (window as any).Data_fundInfo
+    const detailStockCodes = Array.isArray((window as any).stockCodesNew)
+      ? [...(window as any).stockCodesNew] as string[]
+      : []
     
     // 基金经理
     if (Data_currentFundManager && Array.isArray(Data_currentFundManager) && Data_currentFundManager.length > 0) {
@@ -583,41 +588,95 @@ export async function fetchFundDetail(code: string): Promise<FundDetail | null> 
     ;(window as any).Data_currentFundManager = undefined
     ;(window as any).Data_fundInfo = undefined
     
-    // 获取持仓信息 - 使用 loadScriptVar 加载脚本读取 apidata 变量，再解析 HTML
     try {
-      const holdingsUrl = `https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code=${code}&topline=10&year=&month=&_=${Date.now()}`
-      
-      const apidata = await loadScriptVar<any>(holdingsUrl, 'apidata', 8000)
-      ;(window as any).apidata = undefined
-      
-      if (apidata?.content && typeof apidata.content === 'string') {
-        const parser = new DOMParser()
-        const doc = parser.parseFromString(apidata.content, 'text/html')
-        const rows = doc.querySelectorAll('table tbody tr')
-        
-        const holdings: { name: string; code: string; percent: number }[] = []
-        rows.forEach((row) => {
-          const cells = row.querySelectorAll('td')
-          if (cells.length >= 7) {
-            const codeText = cells[1]?.textContent?.trim() || ''
-            const nameText = cells[2]?.textContent?.trim() || ''
-            const percentText = cells[6]?.textContent?.trim().replace('%', '') || '0'
-            if (codeText && nameText) {
-              holdings.push({
-                name: nameText,
-                code: codeText,
-                percent: parseFloat(percentText) || 0,
-              })
-            }
-          }
-        })
-        
-        if (holdings.length > 0) {
-          result.holdings = holdings.slice(0, 10)
+      type PositionData = {
+        Success?: boolean
+        ErrCode?: number
+        ErrMsg?: string | null
+        Expansion?: string | null
+        Datas?: {
+          fundStocks?: Array<{
+            GPDM?: string
+            GPJC?: string
+            JZBL?: string | number
+          }>
         }
       }
-    } catch {
-      // 持仓请求失败，忽略错误
+
+      const clients: Array<Record<string, string>> = [
+        {
+          deviceid: '3EA024C2-7F22-408B-95E4-383D38160FB3',
+          plat: 'Iphone',
+          product: 'EFund',
+          version: '6.3.8',
+          appType: 'ttjj',
+          serverVersion: '6.3.8',
+        },
+        {
+          deviceid: '1234567890',
+          plat: 'Android',
+          product: 'EFund',
+          version: '6.3.8',
+        },
+      ]
+      let positionData: PositionData | null = null
+      let lastError: unknown
+
+      for (const client of clients) {
+        const params = new URLSearchParams({ FCODE: code, ...client })
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 8000)
+        try {
+          const response = await fetch(
+            `https://fundmobapi.eastmoney.com/FundMNewApi/FundMNInverstPosition?${params}`,
+            { signal: controller.signal, cache: 'no-store' }
+          )
+          if (!response.ok) throw new Error(`HTTP ${response.status}`)
+          const data = await response.json() as PositionData
+          if (!data.Success || data.ErrCode !== 0) {
+            throw new Error(data.ErrMsg || 'Fund holdings request failed')
+          }
+          positionData = data
+          break
+        } catch (error) {
+          lastError = error
+        } finally {
+          clearTimeout(timer)
+        }
+      }
+      if (!positionData) throw lastError instanceof Error ? lastError : new Error('Fund holdings request failed')
+
+      result.holdingsReportDate = positionData.Expansion || undefined
+      result.holdings = (positionData.Datas?.fundStocks || [])
+        .filter((item) => item.GPDM && item.GPJC)
+        .slice(0, 10)
+        .map((item) => ({
+          name: String(item.GPJC),
+          code: String(item.GPDM),
+          percent: Number(item.JZBL) || 0,
+        }))
+    } catch (error) {
+      try {
+        if (!detailStockCodes.length) throw error
+        const secids = detailStockCodes.slice(0, 10)
+        const quoteUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f12,f14&secids=${secids.join(',')}&_=${Date.now()}`
+        const quoteData = await jsonp<any>(quoteUrl, 'cb')
+        const quotes = Array.isArray(quoteData?.data?.diff) ? quoteData.data.diff : []
+        const quoteMap = new Map<string, string>(
+          quotes.map((item: any): [string, string] => [String(item.f12), String(item.f14 || item.f12)])
+        )
+        result.holdings = secids.map((secid) => {
+          const code = secid.split('.').pop() || secid
+          return {
+            name: quoteMap.get(code) || code,
+            code,
+            percent: null,
+          }
+        })
+      } catch (fallbackError) {
+        result.holdingsError = true
+        console.error('Failed to fetch fund holdings:', fallbackError)
+      }
     }
     
     return result
