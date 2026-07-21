@@ -26,7 +26,7 @@ interface FundDetailInfo {
   sixMonth: number
   oneYear: number
   twoYear: number
-  holdings?: { name: string; code: string; percent: number | null }[]
+  holdings?: { name: string; code: string; percent: number | null; changePercent: number | null }[]
 }
 
 interface FundDetailModalProps {
@@ -46,7 +46,7 @@ function adaptFundData(data: FundRankingData | FundData): FundDetailInfo {
     scale?: string
     holdingsReportDate?: string
     holdingsError?: boolean
-    holdings?: { name: string; code: string; percent: number | null }[]
+    holdings?: { name: string; code: string; percent: number | null; changePercent: number | null }[]
   }
   return {
     name: enriched.name,
@@ -306,15 +306,32 @@ export default function FundDetailModal({ fund, onClose, isLoading }: FundDetail
                         <p className="text-xs text-muted-foreground">{holding.code}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      {holding.percent !== null ? (
-                        <>
-                          <p className="text-sm font-medium">{holding.percent.toFixed(2)}%</p>
-                          <p className="text-xs text-muted-foreground">持仓占比</p>
-                        </>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">占比暂未提供</p>
-                      )}
+                    <div className="flex items-center gap-4 text-right">
+                      <div className="min-w-[72px]">
+                        {holding.percent !== null ? (
+                          <>
+                            <p className="text-sm font-medium tabular-nums">{holding.percent.toFixed(2)}%</p>
+                            <p className="text-xs text-muted-foreground">持仓占比</p>
+                          </>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">占比暂未提供</p>
+                        )}
+                      </div>
+                      <div className="min-w-[64px]">
+                        {holding.changePercent !== null ? (
+                          <>
+                            <p className={cn(
+                              'text-sm font-semibold tabular-nums',
+                              holding.changePercent >= 0 ? 'text-success' : 'text-destructive'
+                            )}>
+                              {holding.changePercent >= 0 ? '+' : ''}{holding.changePercent.toFixed(2)}%
+                            </p>
+                            <p className="text-xs text-muted-foreground">当前涨跌</p>
+                          </>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">行情暂无</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

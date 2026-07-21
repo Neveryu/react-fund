@@ -552,6 +552,7 @@ export interface FundDetail {
     name: string
     code: string
     percent: number | null
+    changePercent: number | null
   }[]
 }
 
@@ -599,6 +600,7 @@ export async function fetchFundDetail(code: string): Promise<FundDetail | null> 
             GPDM?: string
             GPJC?: string
             JZBL?: string | number
+            NEWTEXCH?: string | number
           }>
         }
       }
@@ -647,30 +649,53 @@ export async function fetchFundDetail(code: string): Promise<FundDetail | null> 
       if (!positionData) throw lastError instanceof Error ? lastError : new Error('Fund holdings request failed')
 
       result.holdingsReportDate = positionData.Expansion || undefined
-      result.holdings = (positionData.Datas?.fundStocks || [])
+      const positionStocks = (positionData.Datas?.fundStocks || [])
         .filter((item) => item.GPDM && item.GPJC)
         .slice(0, 10)
-        .map((item) => ({
+      const secids = positionStocks
+        .filter((item) => item.NEWTEXCH !== undefined)
+        .map((item) => `${item.NEWTEXCH}.${item.GPDM}`)
+      const quoteUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f3,f12,f13&secids=${secids.join(',')}&_=${Date.now()}`
+      const quoteData = secids.length ? await jsonp<any>(quoteUrl, 'cb') : null
+      const quotes = Array.isArray(quoteData?.data?.diff) ? quoteData.data.diff : []
+      const changeMap = new Map<string, number>(
+        quotes
+          .filter((item: any) => typeof item.f3 === 'number')
+          .map((item: any): [string, number] => [`${item.f13}.${item.f12}`, item.f3])
+      )
+      result.holdings = positionStocks.map((item) => {
+        const secid = item.NEWTEXCH !== undefined ? `${item.NEWTEXCH}.${item.GPDM}` : ''
+        return {
           name: String(item.GPJC),
           code: String(item.GPDM),
           percent: Number(item.JZBL) || 0,
-        }))
+          changePercent: changeMap.get(secid) ?? null,
+        }
+      })
     } catch (error) {
       try {
         if (!detailStockCodes.length) throw error
         const secids = detailStockCodes.slice(0, 10)
-        const quoteUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f12,f14&secids=${secids.join(',')}&_=${Date.now()}`
+        const quoteUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f3,f12,f13,f14&secids=${secids.join(',')}&_=${Date.now()}`
         const quoteData = await jsonp<any>(quoteUrl, 'cb')
         const quotes = Array.isArray(quoteData?.data?.diff) ? quoteData.data.diff : []
-        const quoteMap = new Map<string, string>(
-          quotes.map((item: any): [string, string] => [String(item.f12), String(item.f14 || item.f12)])
+        const quoteMap = new Map<string, { name: string; changePercent: number | null }>(
+          quotes.map((item: any): [string, { name: string; changePercent: number | null }] => [
+            `${item.f13}.${item.f12}`,
+            {
+              name: String(item.f14 || item.f12),
+              changePercent: typeof item.f3 === 'number' ? item.f3 : null,
+            },
+          ])
         )
         result.holdings = secids.map((secid) => {
           const code = secid.split('.').pop() || secid
+          const quote = quoteMap.get(secid)
           return {
-            name: quoteMap.get(code) || code,
+            name: quote?.name || code,
             code,
             percent: null,
+            changePercent: quote?.changePercent ?? null,
           }
         })
       } catch (fallbackError) {
