@@ -71,7 +71,7 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
       </div>
 
       <div className="flex min-w-0 w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-5">
-        <div className="flex min-w-0 items-center justify-between text-right sm:block sm:min-w-[70px]">
+        <div className="flex min-w-0 items-center justify-between text-right sm:block sm:min-w-[118px] sm:shrink-0">
           <p className="text-base font-bold tabular-nums">{displayedNav.toFixed(4)}</p>
           {hasValuation ? (
             <p className={cn('flex items-center justify-end gap-0.5 text-xs font-medium tabular-nums', isPositive ? 'text-success' : 'text-destructive')}>
@@ -80,13 +80,13 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
             </p>
           ) : hasTopHoldingsChange ? (
             <p
-              className={cn('max-w-[68%] truncate text-xs font-medium tabular-nums', isPositive ? 'text-success' : 'text-destructive')}
+              className={cn('max-w-[68%] truncate text-xs font-medium tabular-nums sm:max-w-none sm:overflow-visible sm:text-clip', isPositive ? 'text-success' : 'text-destructive')}
               title={`基于${data.holdingsReportDate || '最新披露期'}前十大持仓，覆盖${data.topHoldingsCoverage?.toFixed(2) || '--'}%基金净值`}
             >
               重仓表现 {isPositive ? '+' : ''}{displayedChange?.toFixed(2)}%
             </p>
           ) : (
-            <p className="max-w-[68%] truncate text-xs text-muted-foreground" title={`正式净值 ${data.navDate || '暂无日期'}`}>
+            <p className="max-w-[68%] truncate text-xs text-muted-foreground sm:max-w-none sm:overflow-visible sm:text-clip" title={`正式净值 ${data.navDate || '暂无日期'}`}>
               正式净值 {data.navDate || '暂无日期'}
             </p>
           )}
