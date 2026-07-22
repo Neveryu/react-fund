@@ -106,11 +106,11 @@ export default function FundRankingTable({
         </div>
       )}
       <div className="overflow-x-auto scrollbar-thin">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[460px] text-sm">
           <thead>
-            <tr className="bg-secondary/50">
-              <th className="text-left p-3 text-muted-foreground font-medium w-12">排名</th>
-              <th className="text-left p-3 text-muted-foreground font-medium">名称 / 代码</th>
+            <tr className="whitespace-nowrap bg-secondary/50">
+              <th className="w-12 whitespace-nowrap p-3 text-left font-medium text-muted-foreground">排名</th>
+              <th className="whitespace-nowrap p-3 text-left font-medium text-muted-foreground">名称 / 代码</th>
               <th className="text-left p-3 text-muted-foreground font-medium hidden sm:table-cell">
                 类型
               </th>

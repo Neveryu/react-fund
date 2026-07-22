@@ -37,7 +37,7 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
   return (
     <div
       className={cn(
-        'group relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pl-4 pr-8 sm:pr-10 py-3 rounded-lg border border-border/50 hover:bg-secondary/30 transition-colors',
+        'group relative flex min-w-0 flex-col items-start justify-between gap-3 overflow-hidden rounded-lg border border-border/50 px-3 py-3 hover:bg-secondary/30 transition-colors sm:flex-row sm:items-center sm:gap-2 sm:pl-4 sm:pr-10',
       )}
     >
       {onRemove && (
@@ -50,16 +50,16 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
         </button>
       )}
 
-      <div className="flex items-center gap-3 min-w-0 flex-1 w-full sm:w-auto">
+      <div className="flex min-w-0 w-full flex-1 items-center gap-3 sm:w-auto">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="mb-1 flex min-w-0 items-center gap-2">
             <h3 
               onClick={onClick}
-              className="text-sm font-medium truncate cursor-pointer hover:text-primary transition-colors"
+              className="min-w-0 truncate text-sm font-medium cursor-pointer hover:text-primary transition-colors"
             >
               {data.name}
             </h3>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium shrink-0">
+            <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
               {data.type}
             </span>
           </div>
@@ -70,8 +70,8 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
         </div>
       </div>
 
-      <div className="flex items-center gap-3 sm:gap-5 shrink-0 w-full sm:w-auto">
-        <div className="text-right sm:min-w-[70px]">
+      <div className="flex min-w-0 w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-5">
+        <div className="flex min-w-0 items-center justify-between text-right sm:block sm:min-w-[70px]">
           <p className="text-base font-bold tabular-nums">{displayedNav.toFixed(4)}</p>
           {hasValuation ? (
             <p className={cn('flex items-center justify-end gap-0.5 text-xs font-medium tabular-nums', isPositive ? 'text-success' : 'text-destructive')}>
@@ -80,19 +80,19 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
             </p>
           ) : hasTopHoldingsChange ? (
             <p
-              className={cn('text-xs font-medium tabular-nums whitespace-nowrap', isPositive ? 'text-success' : 'text-destructive')}
+              className={cn('max-w-[68%] truncate text-xs font-medium tabular-nums', isPositive ? 'text-success' : 'text-destructive')}
               title={`基于${data.holdingsReportDate || '最新披露期'}前十大持仓，覆盖${data.topHoldingsCoverage?.toFixed(2) || '--'}%基金净值`}
             >
               重仓表现 {isPositive ? '+' : ''}{displayedChange?.toFixed(2)}%
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground whitespace-nowrap">
+            <p className="max-w-[68%] truncate text-xs text-muted-foreground" title={`正式净值 ${data.navDate || '暂无日期'}`}>
               正式净值 {data.navDate || '暂无日期'}
             </p>
           )}
         </div>
 
-        <div className="flex items-center gap-0.5">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-0.5 sm:flex-nowrap">
           {(Object.keys(periodLabels) as Period[]).map((key) => {
             const val = key === 'oneDay'
               ? displayedChange
@@ -103,7 +103,7 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
                 key={key}
                 onClick={() => setPeriod(key)}
                 className={cn(
-                  'text-xs px-1.5 py-0.5 rounded transition-colors tabular-nums',
+                  'shrink-0 rounded px-1.5 py-0.5 text-xs tabular-nums transition-colors',
                   period === key
                     ? val === null
                       ? 'bg-secondary text-muted-foreground font-medium'
@@ -119,7 +119,7 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
           })}
           <span
             className={cn(
-              'text-xs font-semibold tabular-nums ml-1 px-1.5 py-0.5 rounded',
+              'ml-1 shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold tabular-nums',
               periodReturn === null
                 ? 'bg-secondary text-muted-foreground'
                 : isPeriodPositive ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
