@@ -18,10 +18,19 @@ type Period = keyof typeof periodLabels
 
 export default function FundCard({ data, onRemove, onClick }: { data: FundData; onRemove?: () => void; onClick?: () => void }) {
   const [period, setPeriod] = useState<Period>('oneDay')
-  const hasValuation = data.dayChange !== null && typeof data.estimatedNav === 'number'
-  const isPositive = (data.dayChange ?? 0) >= 0
-  const periodReturn = period === 'oneDay'
+  const referenceDate = data.valuationTime?.slice(0, 10) || data.topHoldingsDate
+  const hasCurrentOfficialNav = Boolean(referenceDate && data.navDate >= referenceDate)
+  const hasValuation = !hasCurrentOfficialNav && data.dayChange !== null && typeof data.estimatedNav === 'number'
+  const hasTopHoldingsChange = !hasCurrentOfficialNav && typeof data.topHoldingsChange === 'number'
+  const displayedChange = hasValuation
     ? data.dayChange
+    : hasTopHoldingsChange
+      ? data.topHoldingsChange ?? null
+      : data.officialDayChange ?? null
+  const displayedNav = hasValuation ? data.estimatedNav ?? data.nav : data.nav
+  const isPositive = (displayedChange ?? 0) >= 0
+  const periodReturn = period === 'oneDay'
+    ? displayedChange
     : (data.returns?.[period as keyof typeof data.returns] ?? 0)
   const isPeriodPositive = (periodReturn ?? 0) >= 0
 
@@ -63,21 +72,30 @@ export default function FundCard({ data, onRemove, onClick }: { data: FundData; 
 
       <div className="flex items-center gap-3 sm:gap-5 shrink-0 w-full sm:w-auto">
         <div className="text-right sm:min-w-[70px]">
-          <p className="text-base font-bold tabular-nums">{(data.estimatedNav ?? data.nav).toFixed(4)}</p>
+          <p className="text-base font-bold tabular-nums">{displayedNav.toFixed(4)}</p>
           {hasValuation ? (
             <p className={cn('flex items-center justify-end gap-0.5 text-xs font-medium tabular-nums', isPositive ? 'text-success' : 'text-destructive')}>
               {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {isPositive ? '+' : ''}{data.dayChange?.toFixed(2)}%
+              {isPositive ? '+' : ''}{displayedChange?.toFixed(2)}%
+            </p>
+          ) : hasTopHoldingsChange ? (
+            <p
+              className={cn('text-xs font-medium tabular-nums whitespace-nowrap', isPositive ? 'text-success' : 'text-destructive')}
+              title={`基于${data.holdingsReportDate || '最新披露期'}前十大持仓，覆盖${data.topHoldingsCoverage?.toFixed(2) || '--'}%基金净值`}
+            >
+              重仓表现 {isPositive ? '+' : ''}{displayedChange?.toFixed(2)}%
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground whitespace-nowrap">暂无盘中估值</p>
+            <p className="text-xs text-muted-foreground whitespace-nowrap">
+              正式净值 {data.navDate || '暂无日期'}
+            </p>
           )}
         </div>
 
         <div className="flex items-center gap-0.5">
           {(Object.keys(periodLabels) as Period[]).map((key) => {
             const val = key === 'oneDay'
-              ? data.dayChange
+              ? displayedChange
               : (data.returns?.[key as keyof typeof data.returns] ?? 0)
             const pos = (val ?? 0) >= 0
             return (

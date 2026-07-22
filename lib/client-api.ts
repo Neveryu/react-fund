@@ -261,6 +261,7 @@ interface FundValuationRaw {
   GZTIME: string | null
   GSZ: number | null
   NAV: number | null
+  NAVCHGRT: number | null
   PDATE: string | null
 }
 
@@ -273,7 +274,7 @@ interface FundValuationResponse {
 async function fetchFundValuations(codes: string[]): Promise<Map<string, FundValuationRaw>> {
   const params = new URLSearchParams({
     FCODES: codes.join(','),
-    FIELDS: 'FCODE,SHORTNAME,GSZZL,GZTIME,GSZ,NAV,PDATE',
+    FIELDS: 'FCODE,SHORTNAME,GSZZL,GZTIME,GSZ,NAV,NAVCHGRT,PDATE',
   })
   const hosts = ['fundcomapi.tiantianfunds.com', 'fundcomapi.eastmoney.com']
   let lastError: unknown
@@ -493,11 +494,22 @@ export async function fetchFundsByCodes(
     : []
   const valuations = await valuationsPromise
   const histories = options.includeHistory ? await Promise.all(historyPromises) : []
+  const performanceEntries = await Promise.all(
+    items.map(async (item): Promise<[string, TopHoldingsPerformance | null]> => {
+      const valuation = valuations.get(item.code)
+      if (typeof valuation?.GSZ === 'number' && typeof valuation.GSZZL === 'number') {
+        return [item.code, null]
+      }
+      return [item.code, await fetchTopHoldingsPerformance(item.code)]
+    })
+  )
+  const performanceMap = new Map<string, TopHoldingsPerformance | null>(performanceEntries)
 
   return items
     .map((item, i) => {
       const valuation = valuations.get(item.code)
       if (!valuation || typeof valuation.NAV !== 'number') return null
+      const performance = performanceMap.get(item.code)
       return {
         name: valuation.SHORTNAME || item.code,
         code: item.code,
@@ -505,8 +517,13 @@ export async function fetchFundsByCodes(
         nav: valuation.NAV,
         navDate: valuation.PDATE || '',
         dayChange: typeof valuation.GSZZL === 'number' ? valuation.GSZZL : null,
+        officialDayChange: typeof valuation.NAVCHGRT === 'number' ? valuation.NAVCHGRT : null,
         estimatedNav: typeof valuation.GSZ === 'number' ? valuation.GSZ : null,
         valuationTime: valuation.GZTIME || null,
+        topHoldingsChange: performance?.change ?? null,
+        topHoldingsDate: performance?.quoteDate,
+        holdingsReportDate: performance?.reportDate,
+        topHoldingsCoverage: performance?.coverage ?? null,
         manager: item.manager || undefined,
         scale: undefined,
         returns: histories[i]?.returns,
@@ -531,6 +548,7 @@ export async function fetchFunds(): Promise<FundData[]> {
       nav: valuation.NAV,
       navDate: valuation.PDATE || '',
       dayChange: typeof valuation.GSZZL === 'number' ? valuation.GSZZL : null,
+      officialDayChange: typeof valuation.NAVCHGRT === 'number' ? valuation.NAVCHGRT : null,
       estimatedNav: typeof valuation.GSZ === 'number' ? valuation.GSZ : null,
       valuationTime: valuation.GZTIME || null,
       manager: config.manager,
@@ -542,6 +560,99 @@ export async function fetchFunds(): Promise<FundData[]> {
 }
 
 /* ── Fund Detail ────────────────────────────── */
+
+interface TopHoldingsPerformance {
+  change: number
+  quoteDate?: string
+  reportDate?: string
+  coverage: number
+}
+
+interface FundPositionStock {
+  GPDM?: string
+  GPJC?: string
+  JZBL?: string | number
+  NEWTEXCH?: string | number
+}
+
+interface FundPositionResponse {
+  Success?: boolean
+  ErrCode?: number
+  ErrMsg?: string | null
+  Expansion?: string | null
+  Datas?: {
+    fundStocks?: FundPositionStock[]
+    InverstPosition?: {
+      fundStocks?: FundPositionStock[]
+    }
+  }
+}
+
+async function fetchTopHoldingsPerformance(code: string): Promise<TopHoldingsPerformance | null> {
+  const params = new URLSearchParams({
+    FCODE: code,
+    deviceid: '1234567.py.service',
+    plat: 'web',
+    product: 'EFund',
+    version: '6.5.5',
+    appVersion: '6.5.5',
+  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 8000)
+
+  try {
+    const response = await fetch(
+      `https://fundmobapi.eastmoney.com/FundMNewApi/FundMNInverstPositionNew?${params}`,
+      { signal: controller.signal, cache: 'no-store' }
+    )
+    if (!response.ok) return null
+    const data = await response.json() as FundPositionResponse
+    const stocks = (data.Datas?.InverstPosition?.fundStocks || data.Datas?.fundStocks || [])
+      .filter((item): boolean => Boolean(item.GPDM) && item.NEWTEXCH !== undefined)
+      .slice(0, 10)
+    if (!data.Success || data.ErrCode !== 0 || !stocks.length) return null
+
+    const secids = stocks.map((item): string => `${item.NEWTEXCH}.${item.GPDM}`)
+    const quoteUrl = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f3,f12,f13,f124&secids=${secids.join(',')}&_=${Date.now()}`
+    const quoteData = await jsonp<any>(quoteUrl, 'cb')
+    const quotes = Array.isArray(quoteData?.data?.diff) ? quoteData.data.diff : []
+    const changeMap = new Map<string, number>(
+      quotes
+        .filter((item: any): boolean => typeof item.f3 === 'number')
+        .map((item: any): [string, number] => [`${item.f13}.${item.f12}`, item.f3])
+    )
+
+    let change = 0
+    let coverage = 0
+    let matched = 0
+    stocks.forEach((item): void => {
+      const percent = Number(item.JZBL)
+      const stockChange = changeMap.get(`${item.NEWTEXCH}.${item.GPDM}`)
+      if (!Number.isFinite(percent) || typeof stockChange !== 'number') return
+      change += percent * stockChange / 100
+      coverage += percent
+      matched += 1
+    })
+    if (!matched) return null
+    const latestQuoteTime = quotes.reduce(
+      (latest: number, item: any): number => typeof item.f124 === 'number' ? Math.max(latest, item.f124) : latest,
+      0
+    )
+
+    return {
+      change,
+      quoteDate: latestQuoteTime
+        ? new Date(latestQuoteTime * 1000).toLocaleDateString('en-CA', { timeZone: 'Asia/Shanghai' })
+        : undefined,
+      reportDate: data.Expansion || undefined,
+      coverage,
+    }
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 export interface FundDetail {
   manager?: string

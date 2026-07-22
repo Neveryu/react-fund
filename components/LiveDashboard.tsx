@@ -206,6 +206,10 @@ export default function LiveDashboard() {
             ...fund,
             returns: fund.returns || previous?.returns,
             sparkline: fund.sparkline?.length ? fund.sparkline : previous?.sparkline,
+            topHoldingsChange: fund.topHoldingsChange ?? previous?.topHoldingsChange,
+            topHoldingsDate: fund.topHoldingsDate || previous?.topHoldingsDate,
+            holdingsReportDate: fund.holdingsReportDate || previous?.holdingsReportDate,
+            topHoldingsCoverage: fund.topHoldingsCoverage ?? previous?.topHoldingsCoverage,
           }
         })
         fundsRef.current = nextFunds
