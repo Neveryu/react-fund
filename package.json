@@ -29,5 +29,21 @@
     "postcss": "8.5.15",
     "tailwindcss": "3.4.19",
     "typescript": "6.0.3"
-  }
+  },
+  "description": "<p align=\"center\">\r   <img src=\"https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white\" alt=\"React\" />\r   <img src=\"https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white\" alt=\"Next.js\" />\r   <img src=\"https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white\" alt=\"TypeScript\" />\r   <img src=\"https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?logo=tailwindcss&logoColor=white\" alt=\"Tailwind CSS\" />\r   <img src=\"https://img.shields.io/badge/部署-GitHub_Pages-222?logo=github&logoColor=white\" alt=\"GitHub Pages\" />\r </p>",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Neveryu/react-fund.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Neveryu/react-fund/issues"
+  },
+  "homepage": "https://github.com/Neveryu/react-fund#readme"
 }

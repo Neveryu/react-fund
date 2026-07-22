@@ -105,22 +105,22 @@ export default function FundRankingTable({
           </div>
         </div>
       )}
-      <div className="overflow-x-auto scrollbar-thin">
-        <table className="w-full min-w-[460px] text-sm">
+      <div className="w-full overflow-hidden">
+        <table className="w-full table-fixed text-xs sm:table-auto sm:text-sm">
           <thead>
             <tr className="whitespace-nowrap bg-secondary/50">
-              <th className="w-12 whitespace-nowrap p-3 text-left font-medium text-muted-foreground">排名</th>
-              <th className="whitespace-nowrap p-3 text-left font-medium text-muted-foreground">名称 / 代码</th>
+              <th className="w-9 whitespace-nowrap px-1 py-3 text-center text-[10px] font-medium text-muted-foreground sm:w-12 sm:p-3 sm:text-left sm:text-sm">排名</th>
+              <th className="whitespace-nowrap px-1 py-3 text-left text-[10px] font-medium text-muted-foreground sm:p-3 sm:text-sm">名称 / 代码</th>
               <th className="text-left p-3 text-muted-foreground font-medium hidden sm:table-cell">
                 类型
               </th>
-              <th className="text-right p-3 text-muted-foreground font-medium">净值</th>
+              <th className="w-[58px] whitespace-nowrap px-1 py-3 text-right text-[10px] font-medium text-muted-foreground sm:w-auto sm:p-3 sm:text-sm">净值</th>
               <th
-                className="text-right p-3 text-muted-foreground font-medium cursor-pointer hover:text-foreground transition-colors"
+                className="w-[68px] cursor-pointer whitespace-nowrap px-1 py-3 text-right text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground sm:w-auto sm:p-3 sm:text-sm"
                 onClick={() => toggleSort('dayChange')}
               >
-                <span className="inline-flex items-center gap-1">
-                  {activeTab === 'yesterday' ? '昨日涨幅' : '日涨幅'} <SortIcon column="dayChange" />
+                <span className="inline-flex items-center gap-0.5 sm:gap-1">
+                  {activeTab === 'yesterday' ? '昨日涨幅' : '日涨幅'} <span className="hidden sm:inline-flex"><SortIcon column="dayChange" /></span>
                 </span>
               </th>
               {activeTab === 'today' && <th
@@ -176,10 +176,10 @@ export default function FundRankingTable({
                 )}
                 onClick={() => onSelectFund?.(fund)}
               >
-                <td className="p-3">
+                <td className="px-1 py-3 text-center sm:p-3 sm:text-left">
                   <span
                     className={cn(
-                      'inline-flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold',
+                      'inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold sm:h-6 sm:w-6 sm:text-xs',
                       i < 3
                         ? 'bg-primary/15 text-primary'
                         : 'text-muted-foreground'
@@ -188,9 +188,9 @@ export default function FundRankingTable({
                     {i + 1}
                   </span>
                 </td>
-                <td className="p-3">
-                  <div className="font-medium">{fund.name}</div>
-                  <div className="text-xs text-muted-foreground">
+                <td className="min-w-0 px-1 py-3 sm:p-3">
+                  <div className="break-words text-[11px] font-medium leading-4 sm:text-sm">{fund.name}</div>
+                  <div className="break-words text-[10px] leading-4 text-muted-foreground sm:text-xs">
                     {fund.code}{activeTab === 'yesterday' && fund.navDate ? ` · ${fund.navDate}` : ''}
                   </div>
                 </td>
@@ -199,10 +199,10 @@ export default function FundRankingTable({
                     {fund.type}
                   </span>
                 </td>
-                <td className="text-right p-3 tabular-nums font-medium">
+                <td className="px-1 py-3 text-right text-[10px] font-medium tabular-nums sm:p-3 sm:text-sm">
                   {fund.nav.toFixed(4)}
                 </td>
-                <td className="text-right p-3">{renderChange(fund.dayChange)}</td>
+                <td className="px-1 py-3 text-right text-[10px] sm:p-3 sm:text-sm">{renderChange(fund.dayChange)}</td>
                 {activeTab === 'today' && <td className="text-right p-3 hidden md:table-cell">
                   {renderChange(fund.weekChange)}
                 </td>}

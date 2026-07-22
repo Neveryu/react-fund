@@ -1,7 +1,6 @@
 import { Metadata } from 'next'
 import Header from '@/components/Header'
 import LiveDashboard from '@/components/LiveDashboard'
-import GithubLink from '@/components/GithubLink'
 
 export const metadata: Metadata = {
   title: '基金实盘跟踪 - 全球指数 · 热门股票 · 实时基金',
@@ -13,7 +12,6 @@ export default function Home() {
     <>
       <Header />
       <LiveDashboard />
-      <GithubLink />
       <footer className="border-t border-border/50 py-8 mt-4">
         <div className="container text-center text-sm text-muted-foreground space-y-1">
           <p>基金实盘跟踪 · 数据仅供参考，不构成投资建议</p>
