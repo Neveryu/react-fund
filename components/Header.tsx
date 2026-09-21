@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { TrendingUp, Menu, X } from 'lucide-react'
+import { TrendingUp, Menu, X, Coffee } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
+import DonateModal from './DonateModal'
 
 const REPOSITORY_URL = 'https://github.com/Neveryu/react-fund'
 
@@ -18,6 +19,7 @@ const navItems = [
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false)
+  const [isDonateOpen, setIsDonateOpen] = useState(false)
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -59,6 +61,14 @@ export default function Header() {
             </span>
             <span>实时行情</span>
           </div>
+          <button
+            onClick={() => setIsDonateOpen(true)}
+            aria-label="捐赠支持"
+            title="请我喝杯咖啡"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <Coffee className="h-5 w-5" />
+          </button>
           <a
             href={REPOSITORY_URL}
             target="_blank"
@@ -101,6 +111,8 @@ export default function Header() {
           ))}
         </nav>
       )}
+
+      {isDonateOpen && <DonateModal onClose={() => setIsDonateOpen(false)} />}
     </header>
   )
 }
