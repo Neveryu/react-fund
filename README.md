@@ -61,12 +61,13 @@
 ### 基金跟踪
 - **基金搜索** — 按名称或代码搜索，数据来自东方财富
 - **自选基金** — 构建你的个人基金组合
-- **基金详情** — 净值、日涨跌、基金经理、历史收益、持仓信息
+- **基金详情** — 净值、盘中估值、日涨跌、基金经理、规模、历史收益、前十大持仓
 - **多时段回报** — 日/周/月/3月/6月/年六个时间维度
 
 ### 基金排行榜
-- **全市场排行** — 全市场开放式基金按日涨幅排序
-- **多维度排序** — 支持日/周/月/3月/6月/年/2年涨幅切换
+- **今日/昨日双 Tab** — 一键切换今日排行与昨日排行
+- **分类型排行** — 股票型、混合型、指数型、QDII 四类基金全市场按涨幅排序
+- **多维度排序** — 支持日/周/月/3月/6月/年涨幅列切换
 - **详情查看** — 点击基金查看经理、规模、持仓等详情
 
 ### AI 智能分析
@@ -74,7 +75,7 @@
 - **情绪判断** — 综合涨跌家数和资金流向分析市场情绪
 
 ### 用户体验
-- **自动刷新** — 每 30 秒自动更新，支持手动刷新
+- **分级自动刷新** — 指数/股票行情 30 秒，基金净值与市场分析 5 分钟，排行/历史收益/热力图 30 分钟，AI 分析 15 分钟，支持手动刷新
 - **深色/浅色主题** — 一键切换，偏好保存在本地
 - **数据持久化** — 自选列表保存在 localStorage，刷新不丢失
 - **响应式设计** — 完美适配手机、平板、桌面
@@ -92,7 +93,7 @@
 | UI | React 19 |
 | 样式 | Tailwind CSS 3.4 + CSS 变量 |
 | 图标 | Lucide React |
-| 数据源 | 东方财富 API + 天天基金 API (JSONP) |
+| 数据源 | 东方财富 API + 天天基金 API (JSONP / CORS) |
 | 部署 | GitHub Pages + GitHub Actions |
 
 ---
@@ -198,19 +199,20 @@ react-fund/
 
 ## 数据来源
 
-通过 JSONP 实时获取多个数据源：
+通过 JSONP + CORS 双通道实时获取多个数据源：
 
 | 数据类型 | 来源 |
 |----------|------|
 | 全球指数 | 东方财富 (push2.eastmoney.com) |
-| 指数 K 线 | 东方财富 (push2his.eastmoney.com) |
+| 指数 K 线 / 迷你图 | 东方财富 (push2his.eastmoney.com) |
 | 股票行情 | 东方财富 (push2.eastmoney.com) |
 | 股票搜索 | 东方财富 (searchapi.eastmoney.com) |
-| 基金净值 | 天天基金 (fundgz.1234567.com.cn) |
-| 基金历史 | 东方财富 (fund.eastmoney.com) |
-| 基金排行 | 东方财富 (fund.eastmoney.com) |
+| 基金净值 / 盘中估值 | 天天基金 (fundcomapi.tiantianfunds.com) / 东方财富 (fundcomapi.eastmoney.com) |
+| 基金历史收益 | 天天基金 (fund.eastmoney.com/pingzhongdata) |
+| 基金排行（今日） | 东方财富 (push2.eastmoney.com，按 b:mk0021~mk0024 分类型) |
+| 基金排行（昨日） | 天天基金 (fund.eastmoney.com/Data/Fund_JJJZ_Data.aspx) |
 | 基金搜索 | 东方财富 (fundsuggest.eastmoney.com) |
-| 基金持仓 | 东方财富 (fundf10.eastmoney.com) |
+| 基金持仓 | 东方财富 (fundmobapi.eastmoney.com) / 天天基金 (fundmobapi.tiantianfunds.com) |
 | 板块排行 | 东方财富 (push2.eastmoney.com) |
 | 板块资金流向 | 东方财富 (push2.eastmoney.com) |
 

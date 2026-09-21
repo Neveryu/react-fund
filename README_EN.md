@@ -62,12 +62,13 @@
 ### Fund Tracking
 - **Fund Search** — Search funds by name or code via East Money API
 - **Custom Watchlist** — Build your personalized fund portfolio
-- **Fund Details** — NAV, daily change, fund manager, holdings, and performance data
+- **Fund Details** — NAV, intraday estimate, daily change, fund manager, scale, historical returns, and top-10 holdings
 - **Multi-period Returns** — View returns across 6 timeframes: day/week/month/3M/6M/year
 
 ### Fund Ranking
-- **Market-wide Ranking** — All open-end funds ranked by daily change
-- **Multi-dimensional Sorting** — Sort by day/week/month/3M/6M/year/2-year returns
+- **Today / Yesterday Tabs** — Switch between today's and yesterday's rankings with one click
+- **Ranked by Fund Type** — Equity, hybrid, index, and QDII funds ranked across the whole market
+- **Multi-dimensional Sorting** — Sort by day/week/month/3M/6M/year returns
 - **Detail View** — Click any fund to view manager, scale, and holdings
 
 ### AI-Powered Analysis
@@ -75,7 +76,7 @@
 - **Sentiment Analysis** — Market sentiment derived from advance/decline ratio and capital flow
 
 ### User Experience
-- **Auto Refresh** — Data refreshes every 30 seconds with manual refresh button
+- **Tiered Auto Refresh** — Index/stock quotes every 30s, fund NAV & market analysis every 5 min, rankings/returns/heatmap every 30 min, AI analysis every 15 min, plus a manual refresh button
 - **Dark / Light Theme** — Toggle with smooth animation, persisted via `localStorage`
 - **Persistent Watchlist** — Your selections saved locally, survive page refresh
 - **Responsive Design** — Fully responsive from mobile to desktop
@@ -93,7 +94,7 @@
 | UI | React 19 |
 | Styling | Tailwind CSS 3.4 + CSS Variables |
 | Icons | Lucide React |
-| Data Source | East Money API + Tiantian Fund API (JSONP) |
+| Data Source | East Money API + Tiantian Fund API (JSONP / CORS) |
 | Deployment | GitHub Pages + GitHub Actions |
 
 ---
@@ -199,19 +200,20 @@ react-fund/
 
 ## Data Sources
 
-Market data is fetched in real-time from multiple sources via JSONP:
+Market data is fetched in real-time from multiple sources via JSONP + CORS:
 
 | Data Type | Source |
 |-----------|--------|
 | Global Indices | East Money (push2.eastmoney.com) |
-| Index K-line | East Money (push2his.eastmoney.com) |
+| Index K-line / Sparkline | East Money (push2his.eastmoney.com) |
 | Stock Quotes | East Money (push2.eastmoney.com) |
 | Stock Search | East Money (searchapi.eastmoney.com) |
-| Fund NAV | Tiantian Fund (fundgz.1234567.com.cn) |
-| Fund History | East Money (fund.eastmoney.com) |
-| Fund Ranking | East Money (fund.eastmoney.com) |
+| Fund NAV / Intraday Estimate | Tiantian Fund (fundcomapi.tiantianfunds.com) / East Money (fundcomapi.eastmoney.com) |
+| Fund Historical Returns | Tiantian Fund (fund.eastmoney.com/pingzhongdata) |
+| Fund Ranking (Today) | East Money (push2.eastmoney.com, by type b:mk0021~mk0024) |
+| Fund Ranking (Yesterday) | Tiantian Fund (fund.eastmoney.com/Data/Fund_JJJZ_Data.aspx) |
 | Fund Search | East Money (fundsuggest.eastmoney.com) |
-| Fund Holdings | East Money (fundf10.eastmoney.com) |
+| Fund Holdings | East Money (fundmobapi.eastmoney.com) / Tiantian Fund (fundmobapi.tiantianfunds.com) |
 | Sector Ranking | East Money (push2.eastmoney.com) |
 | Sector Capital Flow | East Money (push2.eastmoney.com) |
 
