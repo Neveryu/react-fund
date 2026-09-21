@@ -3,7 +3,8 @@
 import { createPortal } from 'react-dom'
 import { X, Coffee } from 'lucide-react'
 
-export const DONATE_QR_URL = 'https://raw.giteeusercontent.com/NeverYu/cdn/raw/master/zsm.jpg'
+// ?v= 用于失效修复前被防盗链 302 污染的历史缓存；后续换图时同步升版本号
+export const DONATE_QR_URL = 'https://raw.giteeusercontent.com/NeverYu/cdn/raw/master/zsm.jpg?v=1'
 
 interface DonateModalProps {
   onClose: () => void
