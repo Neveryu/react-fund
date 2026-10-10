@@ -17,12 +17,36 @@ const FUND_KEY = 'watchlist-funds'
 const STOCK_KEY = 'watchlist-stocks'
 
 export const DEFAULT_FUNDS: WatchlistFund[] = [
+  // —— 原有默认自选（场外为主）——
   { code: '005827', type: '混合型', manager: '张坤' },
   { code: '003095', type: '混合型', manager: '葛兰' },
   { code: '161725', type: '指数型', manager: '侯昊' },
-  { code: '515860', type: 'ETF', manager: '李宁' },
-  { code: '011123', type: '混合型', manager: '过蓓蓓' },
-  { code: '000051', type: '指数型', manager: '张弘弢' },
+  { code: '515860', type: 'ETF', manager: '尚可' },
+  { code: '011123', type: '股票型', manager: '沈若雨' },
+  { code: '000051', type: '指数型', manager: '赵宗庭' },
+  // —— 宽基指数 ETF（大盘风向标）——
+  { code: '510300', type: 'ETF' }, // 沪深300ETF华泰柏瑞
+  { code: '510500', type: 'ETF' }, // 中证500ETF南方
+  { code: '510050', type: 'ETF' }, // 上证50ETF华夏
+  { code: '588000', type: 'ETF' }, // 科创50ETF华夏
+  { code: '588080', type: 'ETF' }, // 科创50ETF易方达
+  { code: '159915', type: 'ETF' }, // 创业板ETF易方达
+  { code: '159949', type: 'ETF' }, // 创业板50ETF华安
+  // —— 行业/主题 ETF ——
+  { code: '512880', type: 'ETF' }, // 证券ETF国泰
+  { code: '512480', type: 'ETF' }, // 半导体ETF国联安
+  { code: '512760', type: 'ETF' }, // 芯片ETF国泰
+  { code: '512010', type: 'ETF' }, // 医药ETF易方达
+  { code: '512690', type: 'ETF' }, // 酒ETF鹏华
+  { code: '159928', type: 'ETF' }, // 消费ETF汇添富
+  { code: '512800', type: 'ETF' }, // 银行ETF华宝
+  { code: '515790', type: 'ETF' }, // 光伏ETF华泰柏瑞
+  { code: '512400', type: 'ETF' }, // 有色金属ETF南方
+  // —— 跨境/商品 ETF ——
+  { code: '513050', type: 'ETF' }, // 中概互联网ETF易方达
+  { code: '513100', type: 'ETF' }, // 纳指ETF国泰
+  { code: '513180', type: 'ETF' }, // 恒生科技ETF华夏
+  { code: '518880', type: 'ETF' }, // 黄金ETF华安
 ]
 
 export function useWatchlist() {
