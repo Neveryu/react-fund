@@ -12,6 +12,7 @@ import ScrollToTop from '@/components/ScrollToTop'
 import IndexChartModal from '@/components/IndexChartModal'
 import FundDetailModal from '@/components/FundDetailModal'
 import AiSettingsModal from '@/components/AiSettingsModal'
+import MarketSessionBadge from '@/components/MarketSessionBadge'
 import { Card, CardContent } from '@/components/ui/card'
 import type { IndexData, StockData, FundData, FundRankingData, DailyAnalysisData, DailyAiAnalysis } from '@/lib/data'
 import {
@@ -67,6 +68,8 @@ export default function LiveDashboard() {
   })
   const [aiAnalysis, setAiAnalysis] = useState<DailyAiAnalysis | null>(null)
   const [lastUpdate, setLastUpdate] = useState<string>('')
+  // 各模块最近一次成功刷新时间（毫秒时间戳），用于分区新鲜度展示
+  const [moduleTimes, setModuleTimes] = useState<{ indices?: number; daily?: number; funds?: number; ranking?: number; stocks?: number }>({})
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isLive, setIsLive] = useState(false)
   const [isAiAnalysisLoading, setIsAiAnalysisLoading] = useState(false)
@@ -189,10 +192,12 @@ export default function LiveDashboard() {
         indicesRef.current = nextIndices
         setIndices(nextIndices)
         setIsLive(true)
+        setModuleTimes((prev) => ({ ...prev, indices: Date.now() }))
         hasSuccessfulUpdate = true
       }
       if (hotStocksRes.status === 'fulfilled' && hotStocksRes.value?.length) {
         setHotStocks(hotStocksRes.value)
+        setModuleTimes((prev) => ({ ...prev, stocks: Date.now() }))
         hasSuccessfulUpdate = true
       }
       if (watchlistStocksRes.status === 'fulfilled') {
@@ -215,6 +220,7 @@ export default function LiveDashboard() {
         fundsRef.current = nextFunds
         setFunds(nextFunds)
         setFundsError(false)
+        setModuleTimes((prev) => ({ ...prev, funds: Date.now() }))
         lastFundRefreshRef.current = Date.now()
         hasSuccessfulUpdate = true
       } else if (shouldRefreshFunds && currentFundList.length > 0) {
@@ -222,10 +228,12 @@ export default function LiveDashboard() {
       }
       if (rankingRes.status === 'fulfilled' && rankingRes.value?.length) {
         setFundRanking(rankingRes.value)
+        setModuleTimes((prev) => ({ ...prev, ranking: Date.now() }))
         hasSuccessfulUpdate = true
       }
       if (yesterdayRankingRes.status === 'fulfilled' && yesterdayRankingRes.value?.length) {
         setYesterdayFundRanking(yesterdayRankingRes.value)
+        setModuleTimes((prev) => ({ ...prev, ranking: Date.now() }))
         hasSuccessfulUpdate = true
       }
       if (dailyRes.status === 'fulfilled' && dailyRes.value !== null) {
@@ -237,6 +245,7 @@ export default function LiveDashboard() {
         }
         dailyAnalysisRef.current = nextDailyAnalysis
         setDailyAnalysis(nextDailyAnalysis)
+        setModuleTimes((prev) => ({ ...prev, daily: Date.now() }))
         hasSuccessfulUpdate = true
       }
 
@@ -293,20 +302,23 @@ export default function LiveDashboard() {
 
       <div className="container space-y-12 py-8">
         {/* Status bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            {isLive ? (
-              <>
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-                </span>
-                <span>实时数据</span>
-              </>
-            ) : (
-              <span>{isRefreshing ? '正在连接数据源' : '数据源未连接'}</span>
-            )}
-            {lastUpdate && <span>· 更新于 {lastUpdate}</span>}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <MarketSessionBadge />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {isLive ? (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                  </span>
+                  <span>实时数据</span>
+                </>
+              ) : (
+                <span>{isRefreshing ? '正在连接数据源' : '数据源未连接'}</span>
+              )}
+              {lastUpdate && <span>· 更新于 {lastUpdate}</span>}
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -369,7 +381,7 @@ export default function LiveDashboard() {
 
         {/* Global Indices */}
         <section id="indices">
-          <SectionHeader title="全球指数" subtitle="主要市场实时行情" />
+          <SectionHeader title="全球指数" subtitle="主要市场实时行情" updatedAt={moduleTimes.indices} staleAfterMs={2 * 60_000} />
           <div className="flex gap-2 mt-4 overflow-x-auto p-2 -m-2">
             {indices.length > 0 ? (
               indices.map((index) => (
@@ -385,7 +397,7 @@ export default function LiveDashboard() {
 
         {/* Daily Market Analysis */}
         <section id="daily">
-          <SectionHeader title="每日股市分析" subtitle="大盘概况 · 板块热度 · 资金流向" />
+          <SectionHeader title="每日股市分析" subtitle="大盘概况 · 板块热度 · 资金流向" updatedAt={moduleTimes.daily} staleAfterMs={12 * 60_000} />
           <div className="mt-4">
             <DailyMarketAnalysis
               data={dailyAnalysis}
@@ -401,13 +413,16 @@ export default function LiveDashboard() {
         <section id="funds">
           <div className="flex items-center justify-between">
             <SectionHeader title="基金跟踪" subtitle="实盘持仓净值跟踪" />
-            <button
-              onClick={() => setSearchType('fund')}
-              className="flex h-7 w-7 items-center justify-center rounded-md border border-border/50 hover:bg-secondary transition-colors"
-              title="添加基金"
-            >
-              <Plus className="h-3.5 w-3.5 text-primary" />
-            </button>
+            <div className="flex items-center gap-3">
+              <UpdatedAt ts={moduleTimes.funds} staleAfterMs={12 * 60_000} />
+              <button
+                onClick={() => setSearchType('fund')}
+                className="flex h-7 w-7 items-center justify-center rounded-md border border-border/50 hover:bg-secondary transition-colors"
+                title="添加基金"
+              >
+                <Plus className="h-3.5 w-3.5 text-primary" />
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-1 gap-2 mt-3">
             {fundList.length > 0 && fundsError && funds.length > 0 && (
@@ -449,6 +464,8 @@ export default function LiveDashboard() {
           <SectionHeader
             title="基金涨跌幅排行榜"
             subtitle={fundRankingTab === 'today' ? '全市场基金今日排行' : '全市场基金昨日排行'}
+            updatedAt={moduleTimes.ranking}
+            staleAfterMs={90 * 60_000}
           />
           <div className="mt-4">
             <FundRankingTable
@@ -456,6 +473,8 @@ export default function LiveDashboard() {
               onSelectFund={handleSelectFund}
               activeTab={fundRankingTab}
               onTabChange={setFundRankingTab}
+              existingCodes={fundList.map((f) => f.code)}
+              onAddFund={(f) => addFund(f.code, f.type)}
             />
           </div>
         </section>
@@ -468,6 +487,7 @@ export default function LiveDashboard() {
               subtitle={stockTab === 'hot' ? '今日热门成交个股' : '我的自选股票'}
             />
             <div className="flex items-center gap-2">
+              <UpdatedAt ts={moduleTimes.stocks} staleAfterMs={2 * 60_000} />
               <div className="flex rounded-lg border border-border/50 overflow-hidden text-xs">
                 <button
                   onClick={() => setStockTab('hot')}
@@ -511,7 +531,11 @@ export default function LiveDashboard() {
           </div>
           <div className="mt-6">
             {stockTab === 'hot' ? (
-              <StockTable stocks={hotStocks} />
+              <StockTable
+                stocks={hotStocks}
+                onAddStock={(s) => addStock(s.code)}
+                existingCodes={stockList.map((s) => s.code)}
+              />
             ) : watchlistStocks.length > 0 ? (
               <StockTable stocks={watchlistStocks} onRemove={removeStock} />
             ) : (
@@ -561,12 +585,47 @@ export default function LiveDashboard() {
 
 /* ── Local helper components ── */
 
-function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
+function SectionHeader({
+  title,
+  subtitle,
+  updatedAt,
+  staleAfterMs,
+}: {
+  title: string
+  subtitle: string
+  updatedAt?: number
+  staleAfterMs?: number
+}) {
   return (
-    <div>
-      <h2 className="text-xl font-bold tracking-tight">{title}</h2>
-      <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+    <div className="flex items-end justify-between gap-3">
+      <div>
+        <h2 className="text-xl font-bold tracking-tight">{title}</h2>
+        <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+      </div>
+      {updatedAt !== undefined && <UpdatedAt ts={updatedAt} staleAfterMs={staleAfterMs} />}
     </div>
+  )
+}
+
+/**
+ * 模块级数据新鲜度标签：显示相对更新时间，超过阈值变琥珀色提醒「可能延迟」。
+ * 每 15 秒自行重新计算相对时间。
+ */
+function UpdatedAt({ ts, staleAfterMs }: { ts?: number; staleAfterMs?: number }) {
+  const [, forceTick] = useState(0)
+  useEffect(() => {
+    const id = window.setInterval(() => forceTick((n) => n + 1), 15_000)
+    return () => window.clearInterval(id)
+  }, [])
+  if (!ts) return <span className="whitespace-nowrap text-xs text-muted-foreground">等待数据…</span>
+  const diff = Date.now() - ts
+  const stale = staleAfterMs != null && diff > staleAfterMs
+  const label = diff < 60_000 ? '刚刚' : diff < 3_600_000 ? `${Math.floor(diff / 60_000)} 分钟前` : `${Math.floor(diff / 3_600_000)} 小时前`
+  return (
+    <span className={cn('whitespace-nowrap text-xs', stale ? 'text-amber-500' : 'text-muted-foreground')}>
+      更新于 {label}
+      {stale && ' · 可能延迟'}
+    </span>
   )
 }
 

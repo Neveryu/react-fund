@@ -442,10 +442,19 @@ export async function searchStocks(keyword: string): Promise<StockSearchResult[]
 
 /* ── Dynamic Stock Fetch ────────────────────── */
 
+/**
+ * 归一化为东财 secid 格式（市场前缀.代码）：已含前缀则原样返回；
+ * 6 位裸代码按首位推断：5/6/9 开头归沪（1.），其余（0/2/3/1 等）归深（0.）。
+ */
+export function toSecid(code: string): string {
+  if (code.includes('.')) return code
+  return /^[569]/.test(code) ? `1.${code}` : `0.${code}`
+}
+
 export async function fetchStocksByCodes(codes: string[]): Promise<StockData[]> {
   if (!codes.length) return []
   try {
-    const secids = codes.join(',')
+    const secids = codes.map(toSecid).join(',')
     const url = `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${secids}&fields=f2,f3,f4,f5,f6,f12,f14,f15,f16&_=${Date.now()}`
     const data = await jsonp<any>(url, 'cb')
     if (data.rc !== 0 || !data.data?.diff) return []

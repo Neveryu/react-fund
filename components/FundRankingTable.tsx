@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { FundRankingData } from '@/lib/data'
-import { ArrowUpDown, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { ArrowUpDown, ArrowUpRight, ArrowDownRight, Plus, Check } from 'lucide-react'
 
 type SortKey = 'dayChange' | 'weekChange' | 'monthChange' | 'threeMonth' | 'sixMonth' | 'oneYear'
 type RankingTab = 'today' | 'yesterday'
@@ -13,6 +13,10 @@ interface FundRankingTableProps {
   onSelectFund?: (fund: FundRankingData) => void
   activeTab?: RankingTab
   onTabChange?: (tab: RankingTab) => void
+  /** 一键加入自选 */
+  onAddFund?: (fund: FundRankingData) => void
+  /** 已在自选中的基金代码，用于按钮状态 */
+  existingCodes?: string[]
 }
 
 export default function FundRankingTable({
@@ -20,6 +24,8 @@ export default function FundRankingTable({
   onSelectFund,
   activeTab = 'today',
   onTabChange,
+  onAddFund,
+  existingCodes,
 }: FundRankingTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('dayChange')
   const [sortDesc, setSortDesc] = useState(true)
@@ -163,6 +169,7 @@ export default function FundRankingTable({
                   近1年 <SortIcon column="oneYear" />
                 </span>
               </th>}
+              {onAddFund && <th className="w-9 p-3"></th>}
 
             </tr>
           </thead>
@@ -218,6 +225,26 @@ export default function FundRankingTable({
                 {activeTab === 'today' && <td className="text-right p-3 hidden xl:table-cell">
                   {renderChange(fund.oneYear)}
                 </td>}
+                {onAddFund && (() => {
+                  const added = existingCodes?.includes(fund.code)
+                  return (
+                    <td className="p-2 text-center sm:p-3" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => !added && onAddFund(fund)}
+                        disabled={added}
+                        title={added ? '已在我的自选' : '加入基金跟踪'}
+                        className={cn(
+                          'inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors',
+                          added
+                            ? 'text-success cursor-default'
+                            : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
+                        )}
+                      >
+                        {added ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                      </button>
+                    </td>
+                  )
+                })()}
 
               </tr>
             ))}

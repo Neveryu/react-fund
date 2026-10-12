@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { toSecid } from './client-api'
 
 export interface WatchlistFund {
   code: string
@@ -62,11 +63,11 @@ export function useWatchlist() {
       if (savedFunds) setFundListState(JSON.parse(savedFunds))
       if (savedStocks) {
         const parsed = JSON.parse(savedStocks)
-        // Backward compatibility: old format was string[]
+        // Backward compatibility: 旧格式为 string[]；统一归一化为带市场前缀的 secid
         if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
-          setStockListState(parsed.map((c: string) => ({ code: c })))
+          setStockListState(parsed.map((c: string) => ({ code: toSecid(c) })))
         } else {
-          setStockListState(parsed)
+          setStockListState(parsed.map((s: WatchlistStock) => ({ ...s, code: toSecid(s.code) })))
         }
       }
     } catch {
@@ -92,17 +93,19 @@ export function useWatchlist() {
   }, [])
 
   const addStock = useCallback((code: string, market?: string) => {
+    const cid = toSecid(code)
     setStockListState((prev) => {
-      if (prev.some((s) => s.code === code)) return prev
-      const next = [...prev, { code, market }]
+      if (prev.some((s) => s.code === cid)) return prev
+      const next = [...prev, { code: cid, market }]
       localStorage.setItem(STOCK_KEY, JSON.stringify(next))
       return next
     })
   }, [])
 
   const removeStock = useCallback((code: string) => {
+    const cid = toSecid(code)
     setStockListState((prev) => {
-      const next = prev.filter((s) => s.code !== code)
+      const next = prev.filter((s) => s.code !== cid)
       localStorage.setItem(STOCK_KEY, JSON.stringify(next))
       return next
     })

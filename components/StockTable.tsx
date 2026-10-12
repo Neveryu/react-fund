@@ -2,12 +2,22 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { toSecid } from '@/lib/client-api'
 import type { StockData } from '@/lib/data'
-import { ArrowUpDown, ArrowUpRight, ArrowDownRight, X } from 'lucide-react'
+import { ArrowUpDown, ArrowUpRight, ArrowDownRight, X, Plus, Check } from 'lucide-react'
 
 type SortKey = 'changePercent' | 'price' | 'turnover'
 
-export default function StockTable({ stocks, onRemove }: { stocks: StockData[]; onRemove?: (code: string) => void }) {
+interface StockTableProps {
+  stocks: StockData[]
+  onRemove?: (code: string) => void
+  /** 一键加入自选（热门成交模式） */
+  onAddStock?: (stock: StockData) => void
+  /** 已在自选中的股票代码 */
+  existingCodes?: string[]
+}
+
+export default function StockTable({ stocks, onRemove, onAddStock, existingCodes }: StockTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('changePercent')
   const [sortDesc, setSortDesc] = useState(true)
 
@@ -69,7 +79,7 @@ export default function StockTable({ stocks, onRemove }: { stocks: StockData[]; 
                   成交额 <ArrowUpDown className="h-3 w-3" />
                 </span>
               </th>
-              {onRemove && <th className="p-3 w-10"></th>}
+              {(onRemove || onAddStock) && <th className="p-3 w-10"></th>}
             </tr>
           </thead>
           <tbody>
@@ -128,6 +138,26 @@ export default function StockTable({ stocks, onRemove }: { stocks: StockData[]; 
                       </button>
                     </td>
                   )}
+                  {!onRemove && onAddStock && (() => {
+                    const added = existingCodes?.includes(toSecid(stock.code))
+                    return (
+                      <td className="p-3 text-center">
+                        <button
+                          onClick={() => !added && onAddStock(stock)}
+                          disabled={added}
+                          title={added ? '已在我的自选' : '加入自选股票'}
+                          className={cn(
+                            'p-1 rounded-md transition-all',
+                            added
+                              ? 'text-success opacity-100 cursor-default'
+                              : 'opacity-40 hover:opacity-100 hover:bg-primary/10'
+                          )}
+                        >
+                          {added ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />}
+                        </button>
+                      </td>
+                    )
+                  })()}
                 </tr>
               )
             })}
