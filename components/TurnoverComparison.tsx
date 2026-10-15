@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from 'react'
 import { BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TurnoverTrendData, TurnoverTrendPoint } from '@/lib/data'
+import TurnoverHistory from './TurnoverHistory'
 
 /** 格式化成交额为"xx亿"（原型图中使用亿为单位） */
 function formatYi(value: number): string {
@@ -49,6 +50,32 @@ interface Props {
 
 export default function TurnoverComparison({ data }: Props) {
   const [tab, setTab] = useState<Tab>('today')
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border/50 bg-card">
+      <div className="flex items-center justify-between border-b border-border/50 px-5 pb-3 pt-4" role="group" aria-label="成交视图">
+        <button
+          type="button"
+          aria-pressed={tab === 'today'}
+          onClick={() => setTab('today')}
+          className={cn('flex items-center gap-1.5 rounded text-base font-semibold focus-visible:ring-2 focus-visible:ring-ring', tab === 'today' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}
+        >
+          今日成交
+          {tab === 'today' && <BookOpen className="h-4 w-4 text-primary" />}
+        </button>
+        <button
+          type="button"
+          aria-pressed={tab === 'history'}
+          onClick={() => setTab('history')}
+          className={cn('rounded text-sm focus-visible:ring-2 focus-visible:ring-ring', tab === 'history' ? 'font-medium text-foreground' : 'text-muted-foreground hover:text-foreground')}
+        >历史成交</button>
+      </div>
+      {tab === 'history' ? <TurnoverHistory /> : <TodayTurnoverContent data={data} />}
+    </div>
+  )
+}
+
+function TodayTurnoverContent({ data }: Props) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
 
@@ -96,9 +123,9 @@ export default function TurnoverComparison({ data }: Props) {
 
   if (!data || !chart) {
     return (
-      <div className="rounded-xl border border-border/50 bg-card p-6">
+      <div className="p-6">
         <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-          暂无成交数据
+          暂无今日成交数据，可切换历史成交查看
         </div>
       </div>
     )
@@ -141,33 +168,6 @@ export default function TurnoverComparison({ data }: Props) {
   const growthPositive = data.growthPercent >= 0
 
   return (
-    <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
-      {/* 顶部 tab */}
-      <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border/50">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setTab('today')}
-            className={cn(
-              'flex items-center gap-1.5 text-base font-semibold transition-colors',
-              tab === 'today' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            今日成交
-            {tab === 'today' && <BookOpen className="h-4 w-4 text-primary" />}
-          </button>
-        </div>
-        <button
-          onClick={() => setTab('history')}
-          className={cn(
-            'text-sm transition-colors',
-            tab === 'history' ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          历史成交
-        </button>
-      </div>
-
-      {tab === 'today' ? (
         <div className="p-5 space-y-4">
           {/* 描述文字 */}
           <p className="text-sm leading-relaxed text-foreground">
@@ -333,11 +333,5 @@ export default function TurnoverComparison({ data }: Props) {
             </div>
           </div>
         </div>
-      ) : (
-        <div className="p-8 text-center text-sm text-muted-foreground">
-          历史成交数据即将上线
-        </div>
-      )}
-    </div>
   )
 }

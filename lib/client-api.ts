@@ -1,6 +1,8 @@
 import type { IndexData, StockData, FundData, FundRankingData, MarketStatsData, SectorData, SectorCapitalFlowData, DailyAnalysisData, TurnoverTrendData, TurnoverTrendPoint, DailyAiAnalysis, HeatmapSector, HeatmapStock } from './data'
 import { buildRuleBasedAiAnalysis, buildAiUserPrompt, parseAiAnalysis } from './ai-daily-analysis'
 import { getAiConfig, hasAiConfig } from './ai-config'
+import type { DailyIndexBar, TurnoverHistoryData, TurnoverHistoryIndex } from './data'
+import { TURNOVER_HISTORY_INDICES, TURNOVER_HISTORY_TTL, parseDailyIndexBars, mergeTurnoverHistory } from './turnover-history'
 
 /* ── JSONP Utility ─────────────────────────────── */
 
@@ -134,6 +136,57 @@ export async function fetchKline(
     return { name: data.data.name || '', code: secid, klines }
   } catch {
     return null
+  }
+}
+
+/* ── 历史成交：按需加载，共享沪深日线 ─────────────── */
+
+type HistorySeries = { bars: DailyIndexBar[]; fetchedAt: number }
+const historySeriesCache = new Map<string, HistorySeries>()
+const historySeriesRequests = new Map<string, Promise<HistorySeries>>()
+
+async function fetchHistorySeries(secid: string, force: boolean): Promise<HistorySeries> {
+  const pending = historySeriesRequests.get(secid)
+  if (pending) return pending
+  const cached = historySeriesCache.get(secid)
+  if (!force && cached && Date.now() - cached.fetchedAt < TURNOVER_HISTORY_TTL) return cached
+
+  const request = (async () => {
+    // 多取一日，用于窗口首日相对昨收及昨日成交额的比较；指数使用不复权日线。
+    const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secid}&klt=101&fqt=0&lmt=121&end=20500101&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57&_=${Date.now()}`
+    const response = await jsonp<{ rc: number; data?: { klines?: unknown[] } | null }>(url, 'cb')
+    if (response.rc !== 0) throw new Error('历史日线查询失败')
+    const lines = response.data?.klines ?? []
+    if (!Array.isArray(lines)) throw new Error('历史日线格式异常')
+    const bars = parseDailyIndexBars(lines)
+    if (lines.length > 0 && bars.length === 0) throw new Error('历史日线无有效价格数据')
+    const result = { bars, fetchedAt: Date.now() }
+    // 空结果不缓存，便于下次进入或刷新时恢复。
+    if (bars.length) historySeriesCache.set(secid, result)
+    return result
+  })()
+  historySeriesRequests.set(secid, request)
+  try {
+    return await request
+  } finally {
+    historySeriesRequests.delete(secid)
+  }
+}
+
+export async function fetchTurnoverHistory(
+  index: TurnoverHistoryIndex,
+  force = false,
+): Promise<TurnoverHistoryData> {
+  const shId = TURNOVER_HISTORY_INDICES.sh.secid
+  const szId = TURNOVER_HISTORY_INDICES.sz.secid
+  const selectedId = TURNOVER_HISTORY_INDICES[index].secid
+  const ids = [...new Set([shId, szId, selectedId])]
+  const results = await Promise.all(ids.map((id) => fetchHistorySeries(id, force)))
+  const series = new Map(ids.map((id, i) => [id, results[i].bars]))
+  return {
+    index,
+    points: mergeTurnoverHistory(series.get(selectedId)!, series.get(shId)!, series.get(szId)!).slice(-120),
+    fetchedAt: Math.min(...results.map((result) => result.fetchedAt)),
   }
 }
 

@@ -46,6 +46,36 @@ export interface TurnoverTrendData {
   szChangePercent: number           // 深证成指今日涨跌幅
 }
 
+export type TurnoverHistoryIndex = 'sh' | 'sz' | 'cyb'
+
+export interface DailyIndexBar {
+  date: string
+  open: number
+  close: number
+  high: number
+  low: number
+  turnover: number | null  // 日成交额（元），缺失不可补零
+}
+
+export interface TurnoverHistoryPoint {
+  date: string
+  open: number
+  close: number
+  high: number
+  low: number
+  indexChangePercent: number | null  // 相对上一交易日收盘
+  shTurnover: number | null
+  szTurnover: number | null
+  totalTurnover: number | null       // 同日沪深两市合计，不含北交所
+  turnoverChangePercent: number | null
+}
+
+export interface TurnoverHistoryData {
+  index: TurnoverHistoryIndex
+  points: TurnoverHistoryPoint[]
+  fetchedAt: number  // 组成数据中最早的成功获取时间
+}
+
 export interface HeatmapSector {
   name: string
   code: string
