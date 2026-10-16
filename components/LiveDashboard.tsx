@@ -482,12 +482,14 @@ export default function LiveDashboard() {
         {/* Stocks */}
         <section id="stocks">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <SectionHeader
-              title="股票行情"
-              subtitle={stockTab === 'hot' ? '今日热门成交个股' : '我的自选股票'}
-            />
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-end justify-between gap-3">
+              <SectionHeader
+                title="股票行情"
+                subtitle={stockTab === 'hot' ? '今日热门成交个股' : '我的自选股票'}
+              />
               <UpdatedAt ts={moduleTimes.stocks} staleAfterMs={2 * 60_000} />
+            </div>
+            <div className="flex items-center gap-2">
               <div className="flex rounded-lg border border-border/50 overflow-hidden text-xs">
                 <button
                   onClick={() => setStockTab('hot')}
