@@ -6,7 +6,8 @@ import { useEffect, useState } from 'react'
  * 访问统计（纯静态部署，无后端）
  * - 计数存储：VisitorBadge 免费计数 API（每个 path 一个独立计数器）
  * - 今日访问人数：按日期分桶的计数器，每台设备每天上报一次（UV 近似）
- * - 总访问人数：每台设备每天上报一次的累计计数器（访问人天累计，展示每日可刷新）
+ * - 总访问人数：每台设备每天上报一次的累计计数器（访问人天累计）
+ * - 今日/累计访问次数（PV）：独立计数器，每次页面加载 +1，不去重
  * - 上报响应即包含最新数值，无需额外读取（读取接口会产生重复计数）
  */
 
@@ -43,9 +44,24 @@ async function reportVisit(path: string): Promise<number | null> {
   }
 }
 
+// 模块级 Promise 复用：同一次页面加载只上报一次 PV（dev StrictMode 双挂载不重复计数）
+let pvPromise: Promise<{ daily: number | null; total: number | null }> | null = null
+
+function reportPageViews(ns: string, today: string) {
+  if (!pvPromise) {
+    pvPromise = Promise.all([
+      reportVisit(`${ns}/pv-daily-${today}`),
+      reportVisit(`${ns}/pv-total`),
+    ]).then(([daily, total]) => ({ daily, total }))
+  }
+  return pvPromise
+}
+
 export default function VisitStats() {
   const [daily, setDaily] = useState<number | null>(null)
   const [total, setTotal] = useState<number | null>(null)
+  const [dailyPv, setDailyPv] = useState<number | null>(null)
+  const [totalPv, setTotalPv] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -76,18 +92,43 @@ export default function VisitStats() {
       if (cached > 0) setTotal(cached)
     }
 
+    void reportPageViews(ns, today).then((pv) => {
+      if (cancelled) return
+      setDailyPv(pv.daily)
+      setTotalPv(pv.total)
+    })
+
     return () => {
       cancelled = true
     }
   }, [])
 
-  const format = (value: number | null) => (value === null ? '--' : value.toLocaleString())
-
   return (
-    <p className="text-xs text-muted-foreground">
-      今日访问 <span className="font-medium tabular-nums text-foreground/70">{format(daily)}</span> 人
-      <span className="mx-1.5 opacity-50">·</span>
-      累计访问 <span className="font-medium tabular-nums text-foreground/70">{format(total)}</span> 人
+    <p className="flex flex-wrap items-center justify-center gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+      <span
+        className="whitespace-nowrap"
+        title="人数按设备每日去重一次（近似）；次数每次页面加载 +1"
+      >
+        今日访问 <StatValue value={daily} /> 人
+        <span className="opacity-60"> / </span>
+        <StatValue value={dailyPv} /> 次
+      </span>
+      <span
+        className="whitespace-nowrap"
+        title="累计人数为人天累计；累计次数为页面加载累计"
+      >
+        累计访问 <StatValue value={total} /> 人
+        <span className="opacity-60"> / </span>
+        <StatValue value={totalPv} /> 次
+      </span>
     </p>
+  )
+}
+
+function StatValue({ value }: { value: number | null }) {
+  return (
+    <span className="font-medium tabular-nums text-foreground/70">
+      {value === null ? '--' : value.toLocaleString()}
+    </span>
   )
 }
